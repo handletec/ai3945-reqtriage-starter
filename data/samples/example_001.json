@@ -1,0 +1,8 @@
+{
+  "request_id": "example_001",
+  "source": "ticket_form",
+  "description": "PLACEHOLDER — replace this with a real example request from your own capstone task, then delete this comment field.",
+  "reported_by": "a.person",
+  "submitted_at": "2026-01-01T00:00:00Z",
+  "tags": ["placeholder"]
+}

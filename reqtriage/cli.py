@@ -1,34 +1,39 @@
 """Command-line entry point: `python -m reqtriage <request.json>`.
 
-This is scaffolding, not a finished CLI. It currently does the plumbing
-you don't need to build yourself — argument parsing, loading and
-validating a request file, clear exit codes for a bad file — and stops
-right before the part that needs `FakeLLM` (which doesn't exist yet; see
-`reqtriage/llm/fake.py`).
+Exit codes (checked in tests/test_cli.py and documented in README.md):
 
-Exit codes:
-
-  0  The request file loaded and validated successfully.
+  0  A normal `TriageResult` was produced (no software failure). Whether
+     `needs_human_review` is true or false is a normal *business*
+     outcome, not a reason for a non-zero exit — plenty of valid triage
+     results need a human to look at them.
   1  Usage or environment problem: bad arguments, missing/unreadable
-     request file, or invalid/schema-violating request JSON.
+     request file, invalid request JSON, or a configuration error. The
+     agent never ran.
+  2  The agent ran but could not produce a normal result — a *degraded*
+     `TriageResult` was produced instead (`result.error` is set). The
+     output on stdout is still a single valid JSON object; nothing
+     "crashed", but a human should look at why.
 
-Once you've implemented `FakeLLM`, the natural next step (part of the
-same exercise, or the one right after it — check the course material)
-is to build the request into a prompt, call `llm.complete()`, and print
-the raw response instead of the request below. Work that structure out
-from `reqtriage/llm/base.py`'s docstring rather than guessing at it.
+This module only does wiring: argument parsing, building the settings and
+LLM client, calling `agent.run_triage`, and printing/exiting. It has no
+triage logic of its own — that is `agent.py`'s job, which is what keeps
+`run_triage()` independently testable without a CLI.
 """
 
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import sys
 from pathlib import Path
 
 from pydantic import ValidationError
 
-from reqtriage.config import Settings
+from reqtriage.config import ConfigError, Settings
+from reqtriage.llm.base import LLMClient
+from reqtriage.llm.fake import FakeLLM
+from reqtriage.llm.http import HttpLLM
 from reqtriage.logging_setup import configure_console_logging
 from reqtriage.models import TriageRequest
 
@@ -36,11 +41,49 @@ from reqtriage.models import TriageRequest
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m reqtriage",
-        description="Load and validate one TriageRequest JSON file. (Calling a model comes next.)",
+        description="Run the reqtriage agent against one request JSON file.",
     )
     parser.add_argument("request_path", type=Path, help="Path to a TriageRequest JSON file")
+    parser.add_argument(
+        "--config", type=Path, default=None, help="Path to settings.toml (default: config/settings.toml)"
+    )
+    parser.add_argument(
+        "--max-tool-actions",
+        type=int,
+        default=None,
+        help="Override config/settings.toml agent.max_tool_actions (the L1/L2/L3 dial)",
+    )
+    parser.add_argument(
+        "--max-model-turns",
+        type=int,
+        default=None,
+        help="Override config/settings.toml agent.max_model_turns (the runaway-loop safety bound)",
+    )
+    parser.add_argument(
+        "--log-path",
+        type=Path,
+        default=None,
+        help="Override config/settings.toml logging.log_path (mainly for tests/validation, to avoid writing into a shared logs/runs.jsonl)",
+    )
     parser.add_argument("--verbose", action="store_true", help="Console log at DEBUG level")
     return parser
+
+
+def _build_fake_llm(settings: Settings, request_id: str) -> FakeLLM:
+    scenario_name = settings.fake_llm.default_scenario
+    if settings.fake_llm.scenario_map_path.is_file():
+        mapping = json.loads(settings.fake_llm.scenario_map_path.read_text(encoding="utf-8"))
+        scenario_name = mapping.get(request_id, scenario_name)
+    fixture_path = settings.fake_llm.fixtures_dir / f"{scenario_name}.json"
+    return FakeLLM.from_fixture_file(fixture_path, model_id=settings.llm.model_id)
+
+
+def build_llm_client(settings: Settings, request_id: str) -> LLMClient:
+    if settings.llm.provider == "fake":
+        return _build_fake_llm(settings, request_id)
+    if settings.llm.provider == "http":
+        return HttpLLM()  # raises HttpLLMNotConfiguredError — see llm/http.py
+    raise ConfigError(f"Unknown llm.provider: {settings.llm.provider!r}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -49,9 +92,33 @@ def main(argv: list[str] | None = None) -> int:
 
     configure_console_logging("DEBUG" if args.verbose else "INFO")
 
-    # Settings.load() is complete scaffolding — see reqtriage/config.py.
-    # You don't need to change it for this checkpoint.
-    _settings = Settings.load()
+    try:
+        settings = Settings.load(config_path=args.config)
+    except ConfigError as exc:
+        print(f"Configuration error: {exc}", file=sys.stderr)
+        return 1
+
+    if args.max_tool_actions is not None or args.max_model_turns is not None:
+        new_max_tool_actions = args.max_tool_actions if args.max_tool_actions is not None else settings.agent.max_tool_actions
+        new_max_model_turns = args.max_model_turns if args.max_model_turns is not None else settings.agent.max_model_turns
+        if new_max_model_turns <= new_max_tool_actions:
+            print(
+                "Configuration error: --max-model-turns must be greater than --max-tool-actions "
+                f"(got max_tool_actions={new_max_tool_actions}, max_model_turns={new_max_model_turns})",
+                file=sys.stderr,
+            )
+            return 1
+        settings = dataclasses.replace(
+            settings,
+            agent=dataclasses.replace(
+                settings.agent, max_tool_actions=new_max_tool_actions, max_model_turns=new_max_model_turns
+            ),
+        )
+
+    if args.log_path is not None:
+        settings = dataclasses.replace(
+            settings, logging=dataclasses.replace(settings.logging, log_path=args.log_path)
+        )
 
     if not args.request_path.is_file():
         print(f"Request file not found: {args.request_path}", file=sys.stderr)
@@ -67,12 +134,18 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Request file does not match the TriageRequest schema:\n{exc}", file=sys.stderr)
         return 1
 
-    # TODO (next exercise): once reqtriage/llm/fake.py is implemented,
-    # build a FakeLLM, render a prompt from `request`, call
-    # `llm.complete(system=..., user=...)`, and print its raw response
-    # instead of the loaded request below.
-    print(json.dumps(request.model_dump(mode="json"), indent=2, sort_keys=True))
-    return 0
+    try:
+        llm = build_llm_client(settings, request.request_id)
+    except Exception as exc:
+        print(f"Could not build LLM client: {exc}", file=sys.stderr)
+        return 1
+
+    from reqtriage.agent import run_triage  # local import keeps CLI import time small
+
+    result = run_triage(request, llm, settings)
+    print(json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True))
+
+    return 2 if result.error else 0
 
 
 if __name__ == "__main__":  # pragma: no cover - exercised via __main__.py

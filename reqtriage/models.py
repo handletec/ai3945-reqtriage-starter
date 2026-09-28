@@ -1,44 +1,92 @@
-"""Typed contracts for the triage agent.
+"""Typed contracts for the agent.
 
-`TriageRequest` below is COMPLETE — it's the input schema, and you need
-it to load the sample requests in `data/samples/`. Everything else is a
-documented STUB: a class exists so other code can reference the name,
-but its fields are not yet defined. Filling these in — as part of a
-later, explicitly bounded exercise, not right now — is what turns "the
-model can say anything" into "the model can only produce one of a small
-number of well-defined shapes that Python then validates."
+CAPSTONE TEMPLATE. Everything in this file except `TriageProposal` and
+`TriageResult` is generic mechanism, carried over unchanged from the
+reference build — you shouldn't need to touch `TriageRequest`,
+`CallToolAction`/`FinalAction`/`AgentAction`, `ToolCallRecord`, or
+`RunMeta` just to adapt this to a new task.
 
-Do not fill in the stubs below on your own initiative. Each one belongs
-to a specific later exercise:
+`TriageProposal` and `TriageResult` below have been reduced to the
+handful of fields that make sense for ANY triage-shaped agent
+(a summary, a confidence score, a human-review flag, a rationale, what's
+missing). TODO: add the fields specific to YOUR task — the equivalents
+of "category", "priority", "component", "suggested_owner" from the
+reqtriage reference build, whatever those are for your domain — and
+keep `docs/brief.md`'s "Outputs" section in sync with whatever you add.
 
-* `TriageProposal` — the structured judgement the model will be trusted
-  to propose (summary, category, priority, owner, confidence, ...).
-  Needed once you're validating model output instead of just printing
-  it raw.
-* `AgentAction` — the two-shape envelope (`call_tool` / `final`) the
-  model's raw JSON gets parsed into. Needed once the model can ask for a
-  tool.
-* `ToolCallRecord` — the audit record of one tool call attempt. Needed
-  once there's a tool to call.
-* `RunMeta` — run-level bookkeeping (model id, tool actions used, model
-  turns used, timing). Needed once there's a bounded loop worth
-  recording metadata about.
-* `TriageResult` — the final, validated, participant-facing record,
-  assembled from `TriageProposal` plus the Python-owned fields above.
+Field ownership (read this before editing anything else in the package):
+
+* `TriageRequest`  — comes from the caller (a JSON file on disk in this
+  course). Never produced by the model. Generic; you probably don't
+  need to change its shape, though nothing stops you.
+* `TriageProposal` — the ONLY thing the model is trusted to produce. It
+  is a *proposal*, not the final record: `rules.post_process` may
+  downgrade or strip fields in it before it becomes a `TriageResult`.
+* `ToolCallRecord` — built exclusively by Python (`agent.py` /
+  `reqtriage/tools`). The model never writes one directly; it only ever
+  sees a summary of one fed back as data. Generic.
+* `RunMeta`         — built exclusively by Python. Model identity, prompt
+  version, timing and token counts are runtime facts, not something an
+  untrusted model call gets to assert about itself. Generic.
+* `TriageResult`    — the final, validated, participant-facing record.
+  Assembled by `agent.py` from a `TriageProposal` plus the Python-owned
+  fields above.
+* `AgentAction`     — the ONLY shape the model's raw JSON output is ever
+  parsed into. It is a discriminated union of exactly two members:
+  `call_tool` (ask Python to run one allowed lookup) and `final` (propose
+  a finished `TriageProposal`). This is what makes the autonomy level
+  legible in code: the number of `call_tool` action opportunities the
+  model may spend is a separate, explicit budget
+  (`settings.agent.max_tool_actions`) from the number of times the model
+  gets to speak at all (`settings.agent.max_model_turns`). A request
+  spends an action opportunity once it passes the budget check and enters
+  dispatch, even when dispatch rejects the tool name/arguments or reports
+  a tool failure. L1 sets the
+  action budget to 0, L2 to 1, L3 to a small number greater than 1. See
+  `agent.py` for where that distinction lives — it is not simply "loop N
+  times". Generic; do not rename the two action shapes.
 """
 
 from __future__ import annotations
 
+from typing import Annotated, Any, Literal, Union
+
 from pydantic import BaseModel, Field
+
+# ---------------------------------------------------------------------------
+# Shared enums
+# ---------------------------------------------------------------------------
+
+# TODO: add your own domain enums here (the reqtriage reference build had
+# Category and Priority) once TriageProposal/TriageResult need them.
+
+ToolStatus = Literal[
+    "ok",
+    "not_found",
+    "invalid_arguments",
+    "unknown_tool",
+    "error",
+    # The model asked for a tool it was otherwise allowed to use, but the
+    # run had already spent its `max_tool_actions` budget. The tool is
+    # NEVER executed in this case — see agent.py. This status exists so
+    # the refusal is visible in the audit trail, exactly like any other
+    # outcome, rather than being silently dropped.
+    "action_limit_reached",
+]
+
+
+# ---------------------------------------------------------------------------
+# Input — generic, carried over unchanged
+# ---------------------------------------------------------------------------
 
 
 class TriageRequest(BaseModel):
-    """A single incoming engineering request, as it would arrive from a
-    ticket form, an email alias, or a chat intake channel.
+    """A single incoming request, as it would arrive from a ticket form,
+    an email alias, or a chat intake channel.
 
     This is untrusted *content* (the description is free text a human
-    typed in a hurry) but a trusted *shape* — it is our own input
-    schema, not something the model produced.
+    typed in a hurry) but a trusted *shape* — it is our own input schema,
+    not something the model produced.
     """
 
     request_id: str = Field(min_length=1)
@@ -50,63 +98,150 @@ class TriageRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# STUBS — see this module's docstring. Do not implement these yet.
+# What the model is trusted to propose — TEMPLATE, minimal generic fields
 # ---------------------------------------------------------------------------
 
 
 class TriageProposal(BaseModel):
-    """STUB. The model's proposed triage judgement, once there is one.
+    """The model's proposed judgement.
 
-    TODO (later exercise): fields for at least summary, category,
-    priority, component, suggested_owner, related_known_issues,
-    missing_info, confidence, needs_human_review, rationale. Think about
-    which of these the model should be trusted to set directly, and
-    which should only ever be set by deterministic Python policy — that
-    distinction matters more than getting the field list exactly right
-    on the first try.
+    This is the *only* pydantic model the model's output is ever allowed
+    to populate. Everything in it is a proposal: `rules.post_process` is
+    free to downgrade or strip fields before it becomes a `TriageResult`.
+
+    TEMPLATE: only the fields every triage-shaped agent needs are here.
+    Add your task's domain-specific fields (whatever your equivalent of
+    category/priority/owner is), and update `reqtriage/prompts.py` and
+    `reqtriage/rules.py::post_process` to match.
     """
 
+    summary: str = Field(max_length=200)
+    missing_info: list[str] = Field(default_factory=list)
+    confidence: float = Field(ge=0.0, le=1.0)
+    needs_human_review: bool
+    rationale: str = Field(max_length=400)
 
-class AgentAction(BaseModel):
-    """STUB. The envelope the model's raw JSON output gets parsed into.
 
-    TODO (later exercise): this should end up as a discriminated union
-    of exactly two shapes — "ask Python to run one bounded tool" and
-    "here is my final proposal" — not a single model with every field
-    optional. A single model with optional fields lets code accidentally
-    read a field that doesn't apply to the action actually taken.
-    """
+# ---------------------------------------------------------------------------
+# The bounded action the model is allowed to choose at each step — generic
+# ---------------------------------------------------------------------------
+
+
+class CallToolAction(BaseModel):
+    """"Run one allowed lookup and give me the result." Never executes
+    anything itself — `agent.py` validates `tool_name` against the
+    registry allow-list before dispatching."""
+
+    action: Literal["call_tool"] = "call_tool"
+    tool_name: str
+    arguments: dict[str, Any] = Field(default_factory=dict)
+
+
+class FinalAction(BaseModel):
+    """"I'm done — here is my proposed result." Ends the loop."""
+
+    action: Literal["final"] = "final"
+    result: TriageProposal
+
+
+# A discriminated union keyed on the `action` field. This is the entire
+# vocabulary the model is allowed to speak in: exactly these two shapes,
+# nothing else. `reqtriage.validation.parse_action` is the only place raw
+# model text is turned into one of these.
+AgentAction = Annotated[Union[CallToolAction, FinalAction], Field(discriminator="action")]
+
+
+# ---------------------------------------------------------------------------
+# Python-owned record keeping — generic, carried over unchanged
+# ---------------------------------------------------------------------------
 
 
 class ToolCallRecord(BaseModel):
-    """STUB. One row of the audit trail for a single tool call attempt.
+    """One row of the AUDIT trail — a concise record of what was
+    attempted, for `TriageResult.tool_calls`, `logs/runs.jsonl`, and
+    diagnosis. Built only by `reqtriage.tools.dispatch_tool` (or, for a
+    refused over-budget attempt, by `agent.py` itself).
 
-    TODO (later exercise, once there is a tool to call): what happened,
-    with what arguments, and how it ended — success, "not found" (not an
-    error), or a genuine failure. Keep in mind: what the model sees back
-    as data should probably NOT be the same shape as this audit record —
-    a short summary for a human reading logs is a different job from the
-    structured result the model needs to reason from.
+    This is deliberately NOT what the model sees back as data — it may
+    carry only a short `result_summary` (an identifier or count), never
+    the tool's full structured result. The model instead receives the
+    narrow result built by `reqtriage.tools.describe_result_for_model`.
+    Conflating the two was a real bug in an earlier version of the
+    reference build: the model was reasoning from `result_summary`
+    strings that did not contain enough detail to justify what it then
+    said. Keep them separate in your own tool too.
     """
+
+    step: int = Field(ge=1)
+    tool_name: str
+    arguments: dict[str, Any]
+    status: ToolStatus
+    result_summary: str | None = None
+    error: str | None = None
+    duration_ms: float = Field(ge=0.0)
 
 
 class RunMeta(BaseModel):
-    """STUB. Run-level bookkeeping: model identity, timing, and — once
-    there is a bounded agent loop — how much of its budget it used.
+    """Runtime facts about how this result was produced. Populated
+    entirely by `agent.py` after the run completes — never by the model.
 
-    TODO (later exercise): don't assume "number of loop iterations" is
-    one number. A model that asks for a tool needs a turn to ask and a
-    turn to finalise — those may need to be tracked and bounded
-    separately from how many tool-action opportunities were spent.
+    `tool_actions_used` and `model_turns_used` are deliberately two
+    different numbers (see `agent.py`). A `call_tool` request that
+    reaches dispatch while budget remains spends an action opportunity,
+    even if it is unknown/invalid or the tool fails. Once the action
+    budget is already spent, later `call_tool` requests are refused
+    without dispatch; those refusals can still consume model turns.
+    Keeping the counters separate makes that distinction visible.
+
+    `model_turns_used` counts EVERY real `llm.complete()` invocation made
+    during the run, with no exceptions — this includes the one
+    validation-repair call when it happens.
+
+    `prompt_tokens` / `completion_tokens` sum the values that were
+    actually reported. `None` means no invocation reported that field.
+    The matching `*_unreported_calls` counter records how many completed
+    model responses omitted that usage field. Therefore a numeric sum
+    with a non-zero unreported-call count is explicitly partial / a
+    lower bound, not a complete run total.
     """
+
+    model_id: str
+    prompt_version: str
+    started_at: str  # ISO-8601 UTC
+    duration_ms: float = Field(ge=0.0)
+    tool_actions_used: int = Field(ge=0)
+    model_turns_used: int = Field(ge=0)
+    repair_used: bool
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    prompt_tokens_unreported_calls: int = Field(default=0, ge=0)
+    completion_tokens_unreported_calls: int = Field(default=0, ge=0)
+
+
+# ---------------------------------------------------------------------------
+# Final output — TEMPLATE, minimal generic fields
+# ---------------------------------------------------------------------------
 
 
 class TriageResult(BaseModel):
-    """STUB. The final, validated, participant-facing record.
+    """The final, validated record. This is what `python -m reqtriage`
+    prints and what `logs/runs.jsonl` summarises.
 
-    TODO (later exercise): assembled from a validated `TriageProposal`
-    plus `RunMeta` and the tool-call audit trail, plus a way to
-    represent "this run could not produce a normal result" without
-    crashing (an `error` field, not an exception escaping to the
-    caller).
+    `error` is `None` for a normal result. It is set to a short error
+    code (see `reqtriage.validation`) when the record is a *safe degraded
+    output* produced after the model or a tool misbehaved — in that case
+    `needs_human_review` is always `True`.
+
+    TEMPLATE: keep this in sync field-for-field with `TriageProposal`
+    above, plus the Python-owned fields (`tool_calls`, `meta`, `error`).
     """
+
+    request_id: str
+    summary: str = Field(max_length=200)
+    missing_info: list[str] = Field(default_factory=list)
+    confidence: float = Field(ge=0.0, le=1.0)
+    needs_human_review: bool
+    rationale: str = Field(max_length=400)
+    tool_calls: list[ToolCallRecord] = Field(default_factory=list)
+    meta: RunMeta
+    error: str | None = None

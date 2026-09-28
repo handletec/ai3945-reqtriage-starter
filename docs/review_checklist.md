@@ -1,9 +1,10 @@
 # Reviewing LLM-generated Python — a checklist
 
-Use this whenever you accept code from a development assistant (Claude or
-otherwise) into this repository. The patterns below are the ones that
-actually show up, not a generic "be careful" list. Each item says what
-to look for and how to check it in under a minute.
+Use this whenever you (or a course participant) accept code from an
+development assistant (Claude or another approved assistant) into this repository. The
+patterns below are the ones that actually show up, not a generic
+"be careful" list. Each item says what to look for and how to check it
+in under a minute.
 
 ## 1. Hallucinated APIs
 
@@ -12,6 +13,9 @@ library you use, but doesn't exist in the version you have pinned.
 **Check:** does it match `requirements.txt`'s pinned version (pydantic
 `2.13.5`, pytest `9.1.1`)? Run it. An `AttributeError` or `TypeError` at
 the call site is this pattern; don't assume it's your typo.
+**Seen in this repo's own build:** none survived to this file, but an
+early draft of a JSON-parsing helper was worth double-checking against
+`json.JSONDecodeError` vs. a hallucinated `json.JSONError`.
 
 ## 2. Wrong-version library syntax
 
@@ -29,8 +33,10 @@ their training data.
 **Look for:** `except Exception:` (or worse, bare `except:`) with no
 comment saying which specific failure is expected and why swallowing it
 is safe.
-**Check:** every `except` you accept should name a specific exception
-and either re-raise, convert to a typed result, or log — never silently
+**Check:** every `except` in this repo should name a specific exception
+(`ValidationError`, `json.JSONDecodeError`, your tool's own declared
+`ToolError`, `OSError`) and either re-raise, convert to a typed result
+(see `validation.py`, `tools/__init__.py`), or log — never silently
 `pass`.
 
 ## 4. Silent defaults that hide a real problem
@@ -38,9 +44,11 @@ and either re-raise, convert to a typed result, or log — never silently
 **Look for:** `.get("field", "")` or `getattr(x, "y", None)` used to
 avoid a `KeyError`/`AttributeError` in a place where a missing value
 actually means something is wrong upstream.
-**Check:** would a missing value here be a legitimate "no data" case, or
-is it papering over a bug that should be visible? If in doubt, let it
-raise in development and convert to a typed failure deliberately.
+**Check:** would a missing value here be a legitimate "no data" case
+(fine — your own tool returning `None` for a genuine no-match), or is it
+papering over a bug that should be visible? If in doubt, let it raise in
+development and convert to a typed failure deliberately, the way
+`dispatch_tool` does.
 
 ## 5. Unnecessary abstractions
 
@@ -49,12 +57,9 @@ or a config object introduced for something that has exactly one
 implementation and no stated plan for a second. Assistants tend to
 generalise prematurely because "flexible" code pattern-matches as
 "good" code in their training data.
-**Check:** is there a stated plan for a second implementation anywhere
-in `docs/brief.md` or this repo's docs? If not, could you delete the
-abstraction and inline the one thing it does? If yes, do that. (You'll
-see this exact pattern named later in the course, once there's a real
-second implementation to compare against — it's worth having the
-instinct now, before that point.)
+**Check:** is there a stated plan for a second implementation anywhere in
+`docs/brief.md` or this repo's docs? If not, could you delete the
+abstraction and inline the one thing it does? If yes, do that.
 
 ## 6. Changed interfaces
 
@@ -71,7 +76,7 @@ until later — check the diff, not just the test result.
 
 **Look for:** a generated tool, field, or code path that does something
 the brief (`docs/brief.md`) never asked for — "while I was at it, I also
-added a `notify_owner()` helper" is the textbook example, and it is
+added a `notify_someone()` helper" is the textbook example, and it is
 exactly the kind of thing this course's brief explicitly forbids.
 **Check:** does every new capability trace back to a line in
 `docs/brief.md`'s "Allowed actions"? If not, it doesn't go in, no matter
@@ -82,22 +87,26 @@ how reasonable it looks in isolation.
 **Look for:** a generated test that asserts the exact internal steps a
 function takes ("calls `json.loads` once, then `model_validate` once")
 rather than its observable behaviour, or a test that asserts exact
-prose output from a model instead of a structural invariant.
+prose output from the model.
 **Check:** would this test still pass after a legitimate internal
 refactor that doesn't change behaviour? Would it still pass after a
-harmless prompt wording change? Assert on fields and invariants, never
-on exact free-text output a model produced.
+harmless prompt wording change? Assert invariants (a status, a bound, a
+set membership) rather than exact summary/rationale text — see how
+`tests/test_agent.py` checks `result.needs_human_review` and
+`result.meta.tool_actions_used` rather than the exact `summary` string
+`FakeLLM` happened to be scripted with.
 
 ## 9. Missing failure handling
 
 **Look for:** a generated function that handles the success path
 beautifully and has no story at all for "the file doesn't exist", "the
 list is empty", or "the JSON doesn't parse".
-**Check:** for anything touching model output, external data, or a
-reference file, cross-reference `docs/brief.md`'s "Known limits" and
-"Human-review boundaries" once those sections exist — every failure mode
-listed there should map to a real, tested code path, not a comment
-promising one.
+**Check:** for anything touching model output, a tool call, or a
+reference-data file, cross-reference `docs/brief.md`'s "Known limits" and
+"Human-review boundaries" — every failure mode listed there (malformed
+model output, an unresolvable action, an exhausted budget, an unknown or
+misused tool, an LLM infrastructure failure) should map to a real, tested
+code path in this repo (`rules.py`, `validation.py`, `tools/__init__.py`).
 
 ## 10. Confident but wrong docstrings/comments
 

@@ -1,0 +1,5 @@
+{
+  "responses": [
+    "{\"action\": \"final\", \"result\": {\"summary\": \"Example request handled directly, no tool needed.\", \"missing_info\": [], \"confidence\": 0.9, \"needs_human_review\": false, \"rationale\": \"A clean, well-formed request with enough information to answer directly.\"}}"
+  ]
+}

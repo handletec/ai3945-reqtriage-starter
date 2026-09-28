@@ -1,0 +1,8 @@
+{
+  "request_id": "example_002",
+  "source": "email",
+  "description": "PLACEHOLDER — a second example request. Aim for at least one POSITIVE case (the agent should handle it cleanly) and one NEGATIVE case (something that should degrade safely or force human review) among your real examples.",
+  "reported_by": null,
+  "submitted_at": null,
+  "tags": []
+}

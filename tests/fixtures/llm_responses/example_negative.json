@@ -1,0 +1,5 @@
+{
+  "responses": [
+    "{\"action\": \"final\", \"result\": {\"summary\": \"Example negative case: not enough information to triage confidently.\", \"missing_info\": [\"reported_by\", \"submitted_at\"], \"confidence\": 0.2, \"needs_human_review\": true, \"rationale\": \"Key fields are missing and the model is not confident in this judgement.\"}}"
+  ]
+}

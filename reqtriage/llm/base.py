@@ -1,16 +1,16 @@
-"""The LLM boundary — COMPLETE at this checkpoint. This is the interface
-you'll implement against, not something you need to change.
+"""The LLM boundary.
 
-Every model call in this application should go through exactly one
-seam: something that implements `LLMClient.complete()`. Nothing above
-this seam should ever know or care whether the concrete implementation
-is a scripted fake (which you'll build next — see `llm/fake.py`) or a
-real HTTP-backed provider.
+Every model call in this application goes through exactly one seam:
+something that implements `LLMClient.complete()`. Nothing above this
+seam — `agent.py`, `validation.py`, `rules.py` — knows or cares whether
+the concrete implementation is `FakeLLM` (this reference build) or a real
+HTTP-backed provider (not implemented yet; see `llm/http.py`).
 
-This is also where "the model's output is untrusted input" starts:
-`LLMResponse.text` is a plain string. Nothing about this boundary
-parses it, trusts it, or executes it — whatever you build on top of
-this should always treat `.text` as hostile until proven otherwise.
+This is also where "the model's output is untrusted input" is made
+concrete: `LLMResponse.text` is a plain string. Nothing about this
+boundary parses it, trusts it, or executes it — that is
+`reqtriage.validation`'s job, and it always treats `.text` as hostile
+until proven otherwise.
 """
 
 from __future__ import annotations
@@ -24,8 +24,8 @@ class LLMResponse:
     """What any LLM client hands back, regardless of provider.
 
     `model_id`, token counts, and latency are runtime facts the *client*
-    reports about itself — never something the model's own text gets to
-    assert about itself.
+    reports about itself — they end up in `RunMeta`, not in anything the
+    model's own text is trusted to assert.
     """
 
     text: str
@@ -37,16 +37,17 @@ class LLMResponse:
 
 class LLMClient(Protocol):
     """The one interface every provider must satisfy. Deliberately just
-    one method: you don't need streaming, multi-turn chat history
-    management, or native function calling to build the agent loop in
-    later exercises — each full turn is one independent `complete()`
-    call."""
+    one method: this course does not need streaming, multi-turn chat
+    history management, or native function calling to teach the agent
+    loop — each full turn is one independent `complete()` call, and
+    `agent.py` is the only place that stitches turns together."""
 
     def complete(self, system: str, user: str) -> LLMResponse:
         """Send one system+user prompt pair, get one raw text response
         back. Implementations must not raise for a "the model said
-        something silly" case — that's expected, and handling it is a
-        later exercise. Implementations SHOULD raise for a genuine
-        infrastructure failure (timeout, connection refused, auth
-        failure)."""
+        something silly" case — that is expected and handled by
+        `reqtriage.validation`. Implementations SHOULD raise for a
+        genuine infrastructure failure (timeout, connection refused,
+        auth failure) — `agent.py` treats any such exception as a fatal
+        run failure and degrades safely."""
         ...

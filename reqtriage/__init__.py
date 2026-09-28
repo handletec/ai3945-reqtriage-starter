@@ -1,11 +1,11 @@
-"""reqtriage — Engineering Request Triage agent (starter scaffolding).
+"""reqtriage — Engineering Request Triage agent.
 
-Course AI3945 (Practical AI Agent Engineering in Python with VS Code).
-See README.md for how to use this starter and docs/brief.md for the
-brief template you'll fill in as you build the agent.
+Reference implementation for course AI3945 (Practical AI Agent Engineering
+in Python with VS Code). See README.md for how to run it and docs/brief.md
+for what it is and is not allowed to do.
 
-This package is deliberately incomplete. Read each module's docstring —
-it says what's here, what's a stub, and what you're expected to build.
+This package is deliberately small and framework-free. Every module is
+meant to be read top-to-bottom by a course participant.
 """
 
-__version__ = "0.0.0"
+__version__ = "0.1.0"

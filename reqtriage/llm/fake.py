@@ -1,77 +1,136 @@
-"""FakeLLM — YOUR FIRST EXERCISE. Not implemented yet.
+"""FakeLLM — a hand-written, deterministic stand-in for a real model.
 
-Why a fake at all: this course runs with no network access and no
-credentials, for every practical and every test. A `FakeLLM` is a
-hand-written, deterministic stand-in for a real model that replays a
-scripted sequence of raw text responses — one per call to `.complete()`.
+Why a hand-written fake instead of a mocking library: the fake's whole
+job is to replay realistic *model misbehaviour* (malformed JSON, an
+unknown tool name, a script that never says "final") in a way a
+participant can open, read, and edit like any other data file. A mock
+object hides that behind test-framework machinery; a fixture file makes
+it a first-class, inspectable teaching artefact.
 
-Why hand-written rather than a mocking library: the fake's whole job is
-to let you (and later, a course participant reviewing your code) open,
-read, and edit a realistic scripted model response like any other data
-file — a plain JSON fixture, not something hidden behind test-framework
-machinery.
+IMPORTANT — read this before trusting a green test suite:
+FakeLLM tests prove that OUR CODE — the parsing, validation, tool
+dispatch, post-rules, and failure handling in this repository — behaves
+correctly for a given model response. They prove NOTHING about whether a
+real model would produce a *good* triage judgement for a given request.
+Testing that requires periodically running representative samples against
+a real, approved model and reviewing the output by hand (see README.md,
+"Moving to a real provider").
 
-## What to build
+Replay model: a `FakeLLM` is constructed from an ordered list of script
+items (a "script"). Each call to `.complete()` returns the next item.
+Once the script is exhausted, the LAST item is repeated indefinitely —
+this is a deliberate, documented behaviour, not a bug: it is what lets
+one canned "call_tool" response stand in for "the model never stops
+asking for tools", used to test `max_model_turns` / `max_tool_actions`
+termination without writing an absurdly long fixture file.
 
-Give a coding assistant a bounded engineering task rather than asking it
-to "add FakeLLM" in the abstract. A reasonable ask:
+A script item is either:
 
-    "Implement FakeLLM in reqtriage/llm/fake.py so it satisfies the
-    LLMClient protocol in reqtriage/llm/base.py. Requirements:
-    - Constructed from an ordered list of raw response strings (a
-      'script'). `FakeLLM(["resp1", "resp2"])`.
-    - Each call to `.complete(system, user)` returns the next scripted
-      response as an `LLMResponse`, in order.
-    - Once the script is exhausted, keep returning the LAST response
-      (never raise, never wrap around to the first).
-    - Raise a clear error at CONSTRUCTION time if the script is empty —
-      that's an authoring mistake, not a runtime condition to handle
-      lazily.
-    - Record every (system, user) pair passed to `.complete()` on the
-      instance, so a test can assert on what was actually sent.
-    - Add a classmethod to build one from a JSON fixture file shaped
-      like `{"responses": ["...", "..."]}`, for named, reusable
-      scenarios rather than inline scripts everywhere."
-
-## Review this before you accept it
-
-- Does `.complete()` actually implement `LLMClient` from
-  `reqtriage/llm/base.py` — same method name, same signature, same
-  return type? A subtly different signature will pass a casual read and
-  fail the first time something else calls it polymorphically.
-- What happens on the call AFTER the script runs out? Read the code, not
-  just the docstring the assistant wrote — try it with a one-item script
-  and three calls before you trust it.
-- Does anything here touch the network, read `.env`, or import a real
-  provider SDK? It shouldn't — a fake has no reason to.
-- Is `LLMResponse.text` used anywhere as if it were already validated or
-  structured (parsed as JSON, indexed into fields)? It shouldn't be —
-  that's not this file's job.
-
-## Validate it
-
-Once you've written (or accepted) an implementation, run
-`python -m pytest tests/test_fake_llm.py -v`. It's a mostly-empty
-scaffold right now with a few TODOs — filling those in with your own
-assertions, based on the requirements above, is part of the exercise:
-writing the test alongside the code is what makes you actually specify
-the "keep returning the last response" behaviour instead of assuming a
-coding assistant got it right.
+* a plain `str` — the response text, with token usage APPROXIMATED from
+  the actual system/user/response text length (see `_approx_tokens`).
+  This is what every fixture file under `tests/fixtures/llm_responses/`
+  uses; it is good enough for scenario tests that don't care about exact
+  token math.
+* a `ScriptedResponse` — response text PLUS explicit `prompt_tokens` /
+  `completion_tokens` (either of which may be `None`, to simulate a
+  provider that reports no usage for that call). Use this whenever a
+  test needs deterministic, exact usage totals to assert against —
+  `RunMeta`'s token totals are a sum across every real model call this
+  run makes (see `reqtriage/agent.py::_ModelUsage`), and asserting that
+  sum against real prompt/response text lengths would be fragile and
+  unreadable; scripting the numbers directly is not.
 """
 
 from __future__ import annotations
 
-# TODO: implement FakeLLM here, satisfying reqtriage.llm.base.LLMClient.
-#
-# from reqtriage.llm.base import LLMResponse
-#
-# class FakeLLM:
-#     def __init__(self, script: list[str], model_id: str = "fake-llm-v1") -> None:
-#         ...
-#
-#     def complete(self, system: str, user: str) -> LLMResponse:
-#         ...
-#
-#     @classmethod
-#     def from_fixture_file(cls, path, model_id: str = "fake-llm-v1") -> "FakeLLM":
-#         ...
+import json
+import time
+from dataclasses import dataclass
+from pathlib import Path
+
+from reqtriage.llm.base import LLMResponse
+
+
+class FakeLLMExhaustedError(Exception):
+    """Raised only if a script is empty at construction time — an
+    authoring mistake in a fixture file, not a normal runtime condition."""
+
+
+@dataclass(frozen=True)
+class ScriptedResponse:
+    """One script item with EXPLICIT token usage, for tests that need
+    deterministic totals — see this module's docstring. `prompt_tokens`
+    / `completion_tokens` are passed straight through to `LLMResponse`
+    unchanged, including `None`."""
+
+    text: str
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+
+
+class FakeLLM:
+    def __init__(self, script: list["str | ScriptedResponse"], model_id: str = "fake-llm-v1") -> None:
+        if not script:
+            raise FakeLLMExhaustedError("FakeLLM script must contain at least one response")
+        self._script = list(script)
+        self._index = 0
+        self.model_id = model_id
+        self.calls: list[tuple[str, str]] = []  # (system, user) pairs, for test assertions
+
+    def complete(self, system: str, user: str) -> LLMResponse:
+        started = time.monotonic()
+        self.calls.append((system, user))
+        item = self._script[min(self._index, len(self._script) - 1)]
+        self._index += 1
+        latency_ms = (time.monotonic() - started) * 1000.0
+
+        if isinstance(item, ScriptedResponse):
+            return LLMResponse(
+                text=item.text,
+                model_id=self.model_id,
+                prompt_tokens=item.prompt_tokens,
+                completion_tokens=item.completion_tokens,
+                latency_ms=latency_ms,
+            )
+
+        response_text = item
+        return LLMResponse(
+            text=response_text,
+            model_id=self.model_id,
+            prompt_tokens=_approx_tokens(system) + _approx_tokens(user),
+            completion_tokens=_approx_tokens(response_text),
+            latency_ms=latency_ms,
+        )
+
+    @classmethod
+    def from_script(cls, script: list["str | ScriptedResponse"], model_id: str = "fake-llm-v1") -> "FakeLLM":
+        """Build a FakeLLM directly from in-memory script items (plain
+        strings, `ScriptedResponse`s, or a mix). Preferred in unit tests
+        where the exact response text — or exact token usage — is the
+        point of the test and should be visible next to the assertion."""
+
+        return cls(script, model_id=model_id)
+
+    @classmethod
+    def from_fixture_file(cls, path: Path, model_id: str = "fake-llm-v1") -> "FakeLLM":
+        """Build a FakeLLM from a named fixture file: a JSON document
+        `{"responses": ["...", "..."]}` under
+        tests/fixtures/llm_responses/. Used by the CLI (via
+        config/fake_llm_scenarios.json) and by tests that want a named,
+        reusable scenario rather than an inline script."""
+
+        if not path.is_file():
+            raise FileNotFoundError(f"FakeLLM fixture not found: {path}")
+        data = json.loads(path.read_text(encoding="utf-8"))
+        responses = data.get("responses")
+        if not isinstance(responses, list) or not responses:
+            raise ValueError(f"Fixture {path} must contain a non-empty 'responses' list")
+        return cls([str(r) if not isinstance(r, str) else r for r in responses], model_id=model_id)
+
+
+def _approx_tokens(text: str) -> int:
+    """A deliberately crude stand-in for a real tokenizer (~4 chars per
+    token). Good enough to exercise the `RunMeta` fields and the cost
+    back-of-envelope in Module 5 — not a claim about real token counts."""
+
+    return max(1, len(text) // 4)

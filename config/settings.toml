@@ -1,0 +1,91 @@
+# reqtriage configuration.
+#
+# This file holds everything about *how the agent runs* that is not a
+# secret: paths, the autonomy ceiling, policy thresholds, and which prompt
+# version is active. Secrets (a future runtime LLM endpoint/key) are never
+# read from this file — see config.py and .env.example.
+
+[llm]
+# "fake" is the only provider implemented at this checkpoint. It requires
+# no network access and no credentials. "http" is a documented stub for
+# later, once an approved runtime endpoint exists — see
+# reqtriage/llm/http.py and README.md.
+provider = "fake"
+model_id = "fake-llm-v1"
+timeout_seconds = 30
+
+[agent]
+# The autonomy dial. Two SEPARATE numbers — see reqtriage/agent.py for
+# why conflating them was a bug:
+#
+# max_tool_actions: the number of `call_tool` action opportunities the
+#   model may spend in one run. Once a request passes the budget check
+#   and enters dispatch, it spends one opportunity even if dispatch
+#   reports unknown_tool, invalid_arguments, or a tool error. This is
+#   the literal L1/L2/L3 knob:
+#     L1 = 0   (the model cannot request an executable tool action)
+#     L2 = 1   (one bounded tool-action opportunity)
+#     L3 = 2+  (a small bounded sequence of tool-action opportunities)
+#   A request after this budget is already spent is never dispatched —
+#   see "action_limit_reached" in reqtriage/models.py.
+#
+# max_model_turns: a SEPARATE hard safety bound on the total number of
+#   times the model is actually invoked (every real `llm.complete()`
+#   call: tool-call attempts, the final turn, AND the one
+#   validation-repair call — none of those are exempt), independent of
+#   max_tool_actions. This is what stops a misbehaving model from
+#   looping forever even after its tool-action budget is exhausted —
+#   e.g. it keeps asking for another tool, or keeps naming a tool that
+#   does not exist. Must be strictly greater than max_tool_actions
+#   (enforced in config.py) so a well-behaved model always has at least
+#   one turn left to return "final" after using its full tool-action
+#   budget.
+#
+# Start at an L1-safe ceiling. After the capstone Brief and Autonomy
+# Lock, raise max_tool_actions only if model-selected actions are
+# justified. An L1 capstone may still use a deterministic program-owned
+# read-only lookup after validated model domain data.
+max_tool_actions = 0
+max_model_turns = 4
+
+[prompts]
+version = "v1-template"
+system_path = "prompts/triage_system.md"
+user_path = "prompts/triage_user.md"
+
+[data]
+samples_dir = "data/samples"
+# TODO: once you add your own tool, point a new key here at its read-only
+# reference data (e.g. `my_reference_path = "data/reference/my_data.csv"`)
+# and add a matching field to `reqtriage/config.py`'s `DataSettings`.
+
+[fake_llm]
+# Maps a TriageRequest.request_id to a named scripted scenario. Each
+# scenario is a JSON file of canned raw model responses replayed in order
+# by reqtriage.llm.fake.FakeLLM. See tests/fixtures/llm_responses/.
+scenario_map_path = "config/fake_llm_scenarios.json"
+fixtures_dir = "tests/fixtures/llm_responses"
+default_scenario = "example"
+
+[logging]
+log_path = "logs/runs.jsonl"
+console_level = "INFO"
+
+[policy]
+# Confidence below this threshold always forces needs_human_review=True,
+# regardless of what the model otherwise proposed. See rules.post_process.
+confidence_threshold = 0.5
+
+# TODO: if your domain needs a deterministic floor (e.g. certain keywords
+# should always force human review, the way an earlier version of this
+# course's reference build used a `security_keywords` list to force
+# priority to its most urgent level), add your own settings key here and
+# a matching block in reqtriage/rules.py::post_process. Nothing here
+# implements a keyword floor right now — don't leave the impression that
+# it does.
+#
+# security_keywords = ["example phrase one", "example phrase two"]
+
+# Requests from any other source are rejected before ever reaching the
+# model (see rules.pre_check) and are always flagged for human review.
+allowed_sources = ["ticket_form", "email", "chat"]
