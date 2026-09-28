@@ -1,0 +1,11 @@
+{
+  "request_id": "req_015",
+  "source": "ticket_form",
+  "description": "Validation-farm jobs in the silicon-validation queue have been sitting pending for six hours with no scheduler errors visible to me. Can someone check what is happening with validation-farm scheduling?",
+  "reported_by": "farida.rahman",
+  "submitted_at": "2026-09-12T15:00:00Z",
+  "tags": [
+    "validation-farm",
+    "scheduler"
+  ]
+}

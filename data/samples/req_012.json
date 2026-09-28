@@ -1,0 +1,11 @@
+{
+  "request_id": "req_012",
+  "source": "chat",
+  "description": "Our product-health telemetry dashboard has been missing data points for the last two days for one validation station, while the other stations look normal. I have not found anything similar in the tracker.",
+  "reported_by": "oliver.nyberg",
+  "submitted_at": "2026-09-12T10:15:00Z",
+  "tags": [
+    "product-health",
+    "telemetry"
+  ]
+}

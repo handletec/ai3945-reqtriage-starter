@@ -1,0 +1,11 @@
+{
+  "request_id": "req_004",
+  "source": "email",
+  "description": "Is there internal documentation on how validation-result retention works for qualification runs versus characterization runs? Trying to understand why an older result bundle was garbage collected.",
+  "reported_by": "sam.okonkwo",
+  "submitted_at": "2026-09-10T11:30:00Z",
+  "tags": [
+    "question",
+    "docs"
+  ]
+}

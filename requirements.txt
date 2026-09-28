@@ -1,0 +1,13 @@
+# Exact versions, verified installable and tested against on 2026-09-14.
+# Do not loosen these to ranges: pinning means every participant who runs
+# `pip install -r requirements.txt` gets these two DIRECT dependencies at
+# the exact versions this course was built and tested against, which is
+# what check_env.py verifies. This does NOT guarantee an identical
+# environment end to end — transitive dependencies (whatever pydantic and
+# pytest themselves depend on) are not locked or hash-pinned here, so two
+# machines can still resolve slightly different transitive versions. If a
+# corporate mirror only carries different versions of pydantic/pytest
+# themselves, that is an Intel environment question (see README.md), not
+# a reason to widen these two pins.
+pydantic==2.13.5
+pytest==9.1.1

@@ -1,0 +1,11 @@
+{
+  "request_id": "req_002",
+  "source": "ticket_form",
+  "description": "A new validation engineer starts Monday and needs standard remote lab access so they can reach the approved bench controllers and results environment before the next qualification run.",
+  "reported_by": "l.fischer",
+  "submitted_at": "2026-09-10T09:02:00Z",
+  "tags": [
+    "access",
+    "lab"
+  ]
+}

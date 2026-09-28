@@ -1,0 +1,11 @@
+{
+  "request_id": "req_011",
+  "source": "ticket_form",
+  "description": "Several engineers are hitting a test-tool license timeout when checking out floating seats around the start of the main validation shift. It usually recovers later without intervention.",
+  "reported_by": "helena.brandt",
+  "submitted_at": "2026-09-11T09:05:00Z",
+  "tags": [
+    "license",
+    "timeout"
+  ]
+}

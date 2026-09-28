@@ -1,0 +1,11 @@
+{
+  "request_id": "req_001",
+  "source": "ticket_form",
+  "description": "Qualification sweep QV-4471 is red again since the test-content 14.2 update landed last night, blocking the milestone review. An HSIO link-training case times out on automated stations with no useful diagnostic trace.",
+  "reported_by": "dana.okafor",
+  "submitted_at": "2026-09-10T08:15:00Z",
+  "tags": [
+    "validation",
+    "blocking"
+  ]
+}
