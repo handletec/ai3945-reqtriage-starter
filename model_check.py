@@ -1,24 +1,20 @@
 from __future__ import annotations
 
-from dotenv import load_dotenv
-
-from llm import AnthropicLLM
+from llm import CopilotLLM
 
 
 def main() -> int:
-    load_dotenv()
+    print("Connecting through your signed-in GitHub Copilot account...")
 
-    print("Connecting to runtime model...")
-
-    llm = AnthropicLLM()
+    llm = CopilotLLM()
 
     response = llm.complete(
         "You are a connection check. Reply with the single word READY.",
-        "Confirm that the model connection works.",
+        "Confirm that the runtime model connection works.",
     )
 
     print(f"Model responded: {response.strip()}")
-    print("Real-model connection works.")
+    print("Copilot runtime connection works.")
 
     return 0
 
