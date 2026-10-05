@@ -1,153 +1,116 @@
-# Troubleshooting
+# Trainer Troubleshooting
 
-## I cloned the repo but do not see LAB.md at the root
+## `ANTHROPIC_API_KEY` is missing
 
-Check:
-
-```bash
-git branch --show-current
-```
-
-It must be:
-
-```text
-participant-guided-agent-v2
-```
-
-If not, clone the correct branch exactly as shown in `README.md`.
-
-## `copilot` command is not found
-
-Install GitHub Copilot CLI using `COPILOT_SETUP.md`.
-
-Examples:
-
-### Windows
-
-```powershell
-winget install GitHub.Copilot
-```
-
-### macOS / Linux with Homebrew
+Set it before real Claude mode:
 
 ```bash
-brew install --cask copilot-cli
+export ANTHROPIC_API_KEY="your-key"
 ```
 
-Then verify:
-
-```bash
-copilot --version
-```
-
-## Python package `copilot` is missing
-
-Activate your virtual environment and run:
-
-```bash
-python -m pip install -r requirements.txt
-```
-
-Then rerun:
-
-```bash
-python check_env.py
-```
-
-## Copilot works in VS Code but `model_check.py` fails
-
-VS Code Copilot and Copilot CLI authentication are separate surfaces.
-
-Run:
-
-```bash
-copilot login
-```
-
-Complete the GitHub OAuth login using the GitHub account that has your Copilot entitlement.
-
-Then retry:
+Then:
 
 ```bash
 python model_check.py
 ```
 
-## Access denied or organization policy error
-
-If your Copilot access is supplied by an organization, that organization must allow GitHub Copilot CLI.
-
-This cannot be fixed in the Python code. Show the error to the trainer.
-
-## Wrong GitHub account
-
-Run `copilot login` again with the account that has Copilot access.
-
-Also check whether `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, or `GITHUB_TOKEN` is set in your shell, because an environment token can override stored login credentials.
-
-## `model_check.py` reports no authentication information
-
-Run:
+Fake mode does not make an API request:
 
 ```bash
-copilot login
+python agent.py --mode fake
 ```
 
-Then retry `python model_check.py`.
+## Authentication error
 
-## `model_check.py` cannot reach the service
+Verify that the API key is valid and is an Anthropic API credential.
 
-Confirm your machine has Internet access and that your network allows GitHub Copilot.
+Do not paste the key into `agent.py` or `llm.py`.
 
-If FakeLLM works but Copilot mode does not, the agent code may be fine and the problem may be authentication/network access.
+## Model not found
 
-## `python agent.py --mode fake ...` fails before contacting a model
-
-Fake mode does not require a live model request, but the Python dependencies still need to be installed.
-
-Run:
+Check the selected model:
 
 ```bash
-python check_env.py
+echo "$ANTHROPIC_MODEL"
 ```
 
-Fix any failed local checks.
+or run explicitly:
 
-## `JSONDecodeError` when running Copilot mode
+```bash
+python agent.py --model claude-sonnet-5-5
+```
 
-The real model returned text that was not valid JSON.
+The model must be available to the API account.
+
+## Effort rejected by the API
+
+Not every model supports every effort level.
+
+Return to the trainer default:
+
+```bash
+python agent.py --model claude-sonnet-5-5 --effort medium
+```
+
+## Response stops early
+
+Increase the output limit:
+
+```bash
+python agent.py --max-tokens 8192
+```
+
+The default 4096 is intentionally modest because this agent should return very small JSON actions.
+
+## `JSONDecodeError` or `invalid_model_output`
 
 Inspect the printed `MODEL TURN` output.
 
-Do not silently convert bad output to `{}` or `None`.
+The system prompt requires one JSON object, but real models can still return malformed or unexpected text.
 
-For the class exercise, retry the command once manually. If the same problem persists, show the raw model response to the trainer.
+Do not silently convert invalid output to an empty object. The structured degraded result is the correct safe behaviour.
 
 ## `tool_not_allowed`
 
-Your Python correctly rejected a tool outside the allow-list.
-
-The only permitted tool is:
+The model requested something other than:
 
 ```text
 track_package
 ```
 
+Python rejected it as intended.
+
 ## `tool_budget_exhausted`
 
-The runtime model requested another tool after the single permitted tool action had already been used.
+The model attempted another tool after the one permitted action.
 
-That is the intended L2 authority boundary.
+That is the intended L2 limit.
 
-## Tests fail after Copilot Chat edits `agent.py`
+## Fake mode works but Claude mode fails
 
-Check that Copilot/Claude changed only `run_agent()`.
+That usually points to API authentication, network access, model availability, or runtime configuration rather than the orchestration itself.
 
-Compare the implementation with `COPILOT_PROMPT.md`.
+Run:
 
-Do not ask Copilot to redesign the project or introduce an agent framework.
+```bash
+python check_env.py
+python model_check.py
+```
 
-## FakeLLM output is always the same
+before debugging `run_agent()`.
 
-That is expected.
+## Tests
 
-`FakeLLM` replays `fake_responses.json`. It exists so the engineering path can be repeated predictably.
+Run:
+
+```bash
+python -m pytest -q
+```
+
+Expected:
+
+```text
+4 passed
+```
+
+The tests do not require a live Claude request.
