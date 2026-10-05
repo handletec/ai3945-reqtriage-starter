@@ -1,4 +1,4 @@
-# Copilot/Claude Prompt — Implement the Agent Loop
+# Morning Copilot/Claude Prompt — Implement L2 Only
 
 Copy everything inside the block below into GitHub Copilot Chat with Claude selected.
 
@@ -16,15 +16,19 @@ Read these files before changing anything:
 - fake_responses.json
 - agent.py
 
-Your task is ONLY to implement run_agent() in agent.py.
+Your task is ONLY to implement run_agent() in agent.py for the MORNING L2 exercise.
 
 Do not redesign the project.
 
+The repository also contains afternoon L3 files. Ignore them for this task.
+
+Even though tools.py contains get_depot_info(), do NOT use it in L2.
+
 The existing code already provides:
 - CopilotLLM for the real GitHub Copilot runtime;
-- FakeLLM for deterministic scripted runtime responses;
+- FakeLLM for deterministic scripted responses;
 - build_llm() and --mode copilot|fake;
-- prompt paths;
+- the L2 prompt paths;
 - the local track_package tool;
 - JSON parsing;
 - command-line handling;
@@ -46,7 +50,7 @@ Implement this exact L2 flow:
    - include answer, model_turns and tool_actions.
 9. If action == call_tool:
    - refuse if the one-tool budget has already been used;
-   - allow only tool name track_package;
+   - allow ONLY track_package;
    - require arguments to be an object;
    - require arguments.tracking_id to be a non-empty string;
    - call track_package(tracking_id, PACKAGE_DATA);
@@ -57,7 +61,7 @@ Implement this exact L2 flow:
 10. If the model requests a second tool:
     - return status=degraded;
     - error=tool_budget_exhausted.
-11. If a tool name is not allowed:
+11. If the tool name is anything except track_package:
     - return status=degraded;
     - error=tool_not_allowed.
 12. If required arguments are invalid:
@@ -69,18 +73,19 @@ Implement this exact L2 flow:
 14. Keep the function small and readable.
 
 Do not:
-- add another tool;
+- use get_depot_info;
 - add L3 behaviour;
+- change MAX_MODEL_TURNS;
+- change MAX_TOOL_ACTIONS;
+- modify prompt files;
+- modify llm.py;
+- modify tools.py;
+- change build_llm();
 - add shell execution;
 - add filesystem writes;
-- change prompts;
-- change llm.py;
-- change tools.py;
-- change build_llm();
-- change the budgets;
 - add retries;
 - add packages;
 - add an agent framework.
 
-After editing, show me only the run_agent() implementation and a short explanation of the control flow.
+After editing, show me only the run_agent() implementation and a short explanation of the L2 control flow.
 ```
