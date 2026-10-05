@@ -1,84 +1,121 @@
-# Minimal Concepts for This Lab
+# Trainer Reference Concepts
 
-## One Copilot account, two different roles
+## Claude is the runtime model
 
-### 1. Coding assistant
+`AnthropicLLM` in `llm.py` calls Claude through the Anthropic Messages API.
 
-GitHub Copilot Chat with Claude in VS Code helps you write `run_agent()`.
+The default runtime is:
 
-That happens while you are developing the program.
-
-### 2. Runtime model
-
-When you run:
-
-```bash
-python agent.py --mode copilot ...
+```text
+claude-sonnet-5-5
+medium effort
+4096 max output tokens
 ```
 
-your Python program calls the GitHub Copilot SDK.
+## Model selection
 
-The SDK uses the GitHub identity you signed in with through Copilot CLI.
+The model is not hard-coded into the orchestration.
 
-This is a runtime model call made by your program. It is separate from the Copilot Chat window that helped you write the code.
+Choose it with:
+
+```bash
+python agent.py --model MODEL_ID
+```
+
+or:
+
+```text
+ANTHROPIC_MODEL
+```
+
+## Effort
+
+Effort controls how much work Claude puts into the response.
+
+The trainer exposes:
+
+```text
+low
+medium
+high
+xhigh
+max
+```
+
+Choose it with:
+
+```bash
+python agent.py --effort high
+```
+
+or:
+
+```text
+ANTHROPIC_EFFORT
+```
+
+Effort affects latency, token usage, reasoning depth, and the model's overall response behaviour. It does **not** grant additional authority to the agent.
+
+Not every model supports every effort level.
+
+## Thinking versus effort
+
+Current Claude models can use adaptive thinking. Effort is the main application-level control used here to steer how much work Claude performs.
+
+This demo does not depend on receiving or displaying Claude's thinking content. It consumes only the final text block containing our JSON action.
+
+## Coding assistant versus runtime
+
+The trainer branch does not require Copilot.
+
+The program calls Claude directly at runtime.
+
+Participants may still use Copilot/Claude in VS Code to write their own code, but that development-time assistant is separate from this trainer runtime.
 
 ## FakeLLM
 
-`FakeLLM` is not an AI model.
+`FakeLLM` replays scripted responses from `fake_responses.json`.
 
-It returns scripted responses from `fake_responses.json`.
-
-We use it after the real-model run so we can repeat the exact same agent behaviour during testing.
+It is useful for deterministic demonstrations and tests:
 
 ```text
-real Copilot runtime → experience real model behaviour
-FakeLLM             → test the Python machinery predictably
+Claude   → real model judgement
+FakeLLM  → predictable agent engineering
 ```
 
-## System prompt
+## Authority boundary
 
-`prompts/system.md` gives the runtime model its role, allowed action, limits, and JSON output contract.
+The model does not execute `track_package()`.
 
-## User prompt
+It requests:
 
-`prompts/user.md` carries the current user request and, after a lookup, the tool result.
-
-## Tool
-
-`track_package()` is an ordinary Python function.
-
-The runtime model may **request** that tool.
-
-Your Python decides whether the request is allowed and performs the call.
-
-## Why Copilot SDK tools are disabled
-
-The runtime adapter uses Copilot SDK `mode="empty"` with `available_tools=[]`.
-
-That prevents Copilot's own shell/filesystem/coding tools from hiding the lesson.
-
-The model returns our JSON action. **Our Python** validates and executes it.
-
-## Model turn versus tool action
-
-A normal run uses:
-
-```text
-model turn 1 → request track_package
-tool action 1 → Python performs lookup
-model turn 2 → final answer
+```json
+{
+  "action": "call_tool",
+  "tool": "track_package",
+  "arguments": {
+    "tracking_id": "PKG123"
+  }
+}
 ```
 
-Two model turns does not mean two tool actions.
+`agent.py` parses and validates that request.
+
+Only then does Python execute the tool.
 
 ## L2 autonomy
 
-For this course, L2 means the model may explicitly choose **one approved action**.
+This exercise permits at most one approved model-selected action.
 
-Python still validates and executes it.
+```text
+model turn 1
+→ one approved tool action
+→ model turn 2
+→ final answer
+```
 
-## Degraded result
+The two model turns and one tool action are separate budgets.
 
-A degraded result is a structured non-success result when the run cannot safely complete.
+## Safe degradation
 
-Failure is allowed. Guessing or ambiguous success is not.
+Invalid model output, an unapproved tool, invalid arguments, or an exhausted budget returns a structured degraded result rather than guessing or silently continuing.
