@@ -120,7 +120,23 @@ Claude runtime connection works.
 Fake mode requires no API call:
 
 ```bash
-python agent.py --mode fake "My parcel PKG123 was due yesterday. Where is it?"
+python agent.py --mode fake --level l2
+python agent.py --mode fake --level l3
 ```
 
 Use it to show the same orchestration with deterministic model responses.
+
+## 8. Autonomy level is separate from model effort
+
+Use:
+
+```bash
+python agent.py --mode claude --level l2
+python agent.py --mode claude --level l3
+```
+
+`--level` changes the Python authority boundary.
+
+`--effort` changes how much work Claude puts into its response.
+
+Higher effort does not grant additional tools or tool actions.
