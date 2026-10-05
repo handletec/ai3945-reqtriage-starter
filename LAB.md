@@ -1,8 +1,8 @@
-# Guided Lab — Build and Run a Real-Model Parcel Agent
+# Guided Lab — Build and Run a Copilot-Backed Parcel Agent
 
 ## Goal
 
-Build a small agent that can answer:
+Build a small L2 agent that can answer:
 
 > My parcel PKG123 was due yesterday. Where is it?
 
@@ -10,33 +10,35 @@ The finished flow is:
 
 ```text
 user request
-→ real Claude model
+→ GitHub Copilot runtime model
 → model requests track_package
 → your Python validates the request
 → your Python runs track_package()
-→ tool result goes back to Claude
-→ Claude returns the final answer
+→ tool result goes back to the runtime model
+→ runtime model returns the final answer
 ```
 
-The model may request the tool. **Python remains in control of execution.**
+Copilot may request the tool. **Python remains in control of execution.**
 
 ---
 
-## Checkpoint 0 — Environment
+## Checkpoint 0 — Make the environment ready
 
-Run:
+First complete `COPILOT_SETUP.md`.
+
+Then run:
 
 ```bash
 python check_env.py
 ```
 
-After dependencies and credentials are configured, the expected final line is:
+Expected final line:
 
 ```text
-All checks passed. Continue with LAB.md.
+All local checks passed. Next run: python model_check.py
 ```
 
-Then verify the real model:
+Now prove that your Python program can reach Copilot:
 
 ```bash
 python model_check.py
@@ -45,18 +47,16 @@ python model_check.py
 Expected pattern:
 
 ```text
-Connecting to runtime model...
+Connecting through your signed-in GitHub Copilot account...
 Model responded: READY
-Real-model connection works.
+Copilot runtime connection works.
 ```
 
-The exact capitalization of the model response is not important. A successful response proves your runtime credentials and network path work.
-
-If either command fails, use `TROUBLESHOOTING.md` before continuing.
+If this fails, do not start coding yet. Use `TROUBLESHOOTING.md`.
 
 ---
 
-## Checkpoint 1 — Inspect what is already supplied
+## Checkpoint 1 — Inspect the supplied pieces
 
 Open these files:
 
@@ -66,32 +66,32 @@ prompts/user.md
 data/packages.json
 tools.py
 llm.py
+fake_responses.json
 agent.py
 ```
 
 Do not edit anything yet.
 
-Be able to identify:
+Identify each responsibility:
 
 ```text
-system.md       rules given to the runtime model
-user.md         current request and optional tool result
-packages.json   synthetic parcel data
-tools.py        normal Python function that reads parcel data
-llm.py          real Claude API adapter
-agent.py        orchestration code you will complete
+system.md          runtime rules and JSON contract
+user.md            current request + current tool result
+packages.json      synthetic parcel data
+tools.py           local deterministic Python lookup
+llm.py             CopilotLLM + FakeLLM adapters
+fake_responses     scripted FakeLLM behaviour
+agent.py           orchestration you will complete
 ```
 
-Important:
+Important distinction:
 
-> Copilot/Claude helps you WRITE the code.  
-> AnthropicLLM in llm.py is what the code CALLS when it runs.
+> Copilot Chat with Claude helps you WRITE the agent.
+> CopilotLLM is what the agent CALLS while it runs.
 
 ---
 
-## Checkpoint 2 — Run the tool directly
-
-Before involving a model, prove the ordinary Python tool works.
+## Checkpoint 2 — Prove the tool works without AI
 
 Run:
 
@@ -99,25 +99,24 @@ Run:
 python tools.py PKG123
 ```
 
-Expected:
+Expected evidence:
 
 ```json
 {
   "found": true,
   "tracking_id": "PKG123",
   "status": "Delayed",
-  "location": "Penang depot",
-  ...
+  "location": "Penang depot"
 }
 ```
 
-Now try:
+Now run:
 
 ```bash
 python tools.py DOES-NOT-EXIST
 ```
 
-Expected:
+Expected evidence:
 
 ```json
 {
@@ -126,7 +125,7 @@ Expected:
 }
 ```
 
-This proves the tool is just normal deterministic Python.
+This proves the tool is ordinary Python. The model does not perform the lookup itself.
 
 ---
 
@@ -134,9 +133,9 @@ This proves the tool is just normal deterministic Python.
 
 Open `prompts/system.md`.
 
-The model is allowed to return one of two actions.
+The runtime model may return only one of two action types.
 
-Request the tool:
+Tool request:
 
 ```json
 {
@@ -148,7 +147,7 @@ Request the tool:
 }
 ```
 
-Or finish:
+Final response:
 
 ```json
 {
@@ -157,17 +156,15 @@ Or finish:
 }
 ```
 
-We designed this JSON contract. It is the contract between our application and the runtime model.
-
-The model does **not** get permission to execute arbitrary Python.
+This JSON format is **our application contract**. It is not permission for the model to execute Python.
 
 ---
 
-## Checkpoint 4 — Use Copilot/Claude to implement the agent loop
+## Checkpoint 4 — Use Copilot/Claude to implement only the loop
 
 Open `agent.py`.
 
-Most of the wiring is already present. The function you need to complete is:
+The missing function is:
 
 ```python
 run_agent(request: str, llm) -> dict
@@ -175,32 +172,30 @@ run_agent(request: str, llm) -> dict
 
 Open `COPILOT_PROMPT.md`.
 
-Copy the complete prompt from that file into GitHub Copilot Chat with Claude selected.
+Copy its complete prompt into GitHub Copilot Chat with Claude selected.
 
-Let Claude edit `agent.py`.
+Allow Claude to implement only `run_agent()`.
 
-Then inspect the resulting `run_agent()` before running it.
+Before running it, inspect the result and point to:
 
-You should be able to point to:
+1. where the runtime model is called;
+2. where model JSON is parsed;
+3. where the tool name is allow-listed;
+4. where the one-tool budget is enforced;
+5. where Python calls `track_package()`;
+6. where the tool result is sent back to the model;
+7. where the final structured result is returned.
 
-1. where the real model is called;
-2. where the model output is parsed;
-3. where the tool name is checked;
-4. where the one-tool budget is checked;
-5. where Python executes `track_package()`;
-6. where the tool result is passed back to the model;
-7. where the final answer is returned.
-
-If Claude changes unrelated files or adds more tools, undo those changes and use the bounded prompt again.
+If Claude changes other files, adds another tool, or adds a framework, undo those changes and use the bounded prompt again.
 
 ---
 
-## Checkpoint 5 — Run the real agent
+## Checkpoint 5 — Run the real Copilot-backed agent
 
 Run:
 
 ```bash
-python agent.py "My parcel PKG123 was due yesterday. Where is it?"
+python agent.py --mode copilot "My parcel PKG123 was due yesterday. Where is it?"
 ```
 
 Expected pattern:
@@ -225,9 +220,9 @@ FINAL RESULT
 }
 ```
 
-The wording of the final answer can vary because this is a real model.
+The wording can vary because this is a real model.
 
-The important evidence is:
+The evidence that matters is:
 
 ```text
 real model called
@@ -239,53 +234,79 @@ real model called
 
 ---
 
-## Checkpoint 6 — Try other requests
+## Checkpoint 6 — Run the same agent with FakeLLM
+
+Now run:
+
+```bash
+python agent.py --mode fake "My parcel PKG123 was due yesterday. Where is it?"
+```
+
+This uses `fake_responses.json` instead of GitHub Copilot.
+
+Run it again.
+
+The model responses should be the same each time.
+
+That is the purpose of FakeLLM:
+
+```text
+CopilotLLM → real model behaviour
+FakeLLM    → repeatable engineering test behaviour
+```
+
+FakeLLM does not reason. It replays scripted responses.
+
+---
+
+## Checkpoint 7 — Try different real requests
 
 Run:
 
 ```bash
-python agent.py "Has PKG456 already been delivered?"
+python agent.py --mode copilot "Has PKG456 already been delivered?"
 ```
 
 Then:
 
 ```bash
-python agent.py "Where is parcel UNKNOWN999?"
+python agent.py --mode copilot "Where is parcel UNKNOWN999?"
 ```
 
-Observe what changes and what stays deterministic.
+Observe what varies and what stays deterministic.
 
-The model wording may vary. The local data and Python authority rules do not.
+The model wording can vary. The parcel data and Python authority rules do not.
 
 ---
 
-## Checkpoint 7 — Run deterministic tests
+## Checkpoint 8 — Run deterministic tests
 
-Now that you have experienced the real model, run:
+Run:
 
 ```bash
 python -m pytest -q
 ```
 
-Expected after your `run_agent()` implementation is correct:
+Expected after `run_agent()` is correct:
 
 ```text
 4 passed
 ```
 
-The tests use a tiny scripted model substitute so they can test your Python repeatedly without paying for or depending on a live model call.
+The tests use scripted model responses. They do not depend on a live Copilot request.
 
 ---
 
-## Checkpoint 8 — Explain the boundary
+## Checkpoint 9 — Explain the boundary
 
 Before finishing, be able to answer:
 
-1. What did Copilot/Claude do?
-2. What did the runtime Claude model do?
-3. Who actually executed `track_package()`?
-4. Could the model execute a tool named `delete_package`?
-5. Why were there normally two model turns but one tool action?
-6. What does Python do when the model exceeds its authority?
+1. What did Copilot Chat with Claude do?
+2. What did CopilotLLM do?
+3. What did FakeLLM do?
+4. Who actually executed `track_package()`?
+5. Could the runtime model execute `delete_package`?
+6. Why are there normally two model turns but one tool action?
+7. Why is FakeLLM useful after the real-model run?
 
-If you can answer those from the code you ran, the lab is complete.
+If you can answer those questions from the code you ran, the lab is complete.
