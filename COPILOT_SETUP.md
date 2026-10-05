@@ -110,9 +110,7 @@ available_tools=[]
 
 That means Copilot itself is not allowed to use shell, filesystem, or coding tools during the runtime call.
 
-The runtime model can only return our JSON action request.
-
-**Your Python code** decides whether `track_package()` is allowed and executes it.
+The runtime model is instructed to return our JSON action contract. It can still return malformed or unexpected text, so **your Python code** parses and validates the response before deciding whether `track_package()` is allowed and executed.
 
 That separation is the point of the exercise.
 
