@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
-import shutil
+import os
 import sys
 from pathlib import Path
 
@@ -9,11 +9,7 @@ ROOT = Path(__file__).resolve().parent
 
 REQUIRED_FILES = [
     "README.md",
-    "LAB.md",
-    "COPILOT_PROMPT.md",
-    "COPILOT_SETUP.md",
-    "CONCEPTS.md",
-    "TROUBLESHOOTING.md",
+    "CLAUDE_SETUP.md",
     "agent.py",
     "llm.py",
     "tools.py",
@@ -26,7 +22,7 @@ REQUIRED_FILES = [
     "tests/test_tools.py",
 ]
 
-REQUIRED_PACKAGES = ["copilot", "pytest"]
+REQUIRED_PACKAGES = ["anthropic", "pytest"]
 
 
 def report(label: str, ok: bool, detail: str = "") -> bool:
@@ -47,14 +43,6 @@ def main() -> int:
         )
     )
 
-    results.append(
-        report(
-            "Copilot CLI installed",
-            shutil.which("copilot") is not None,
-            "read COPILOT_SETUP.md",
-        )
-    )
-
     for package in REQUIRED_PACKAGES:
         results.append(
             report(
@@ -66,6 +54,15 @@ def main() -> int:
 
     for relative in REQUIRED_FILES:
         results.append(report(f"file: {relative}", (ROOT / relative).exists()))
+
+    api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    results.append(
+        report(
+            "ANTHROPIC_API_KEY set",
+            bool(api_key),
+            "export the Anthropic API key before real Claude mode",
+        )
+    )
 
     print()
 
