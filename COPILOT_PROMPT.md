@@ -7,11 +7,13 @@ Read these files before changing anything:
 
 - README.md
 - LAB.md
+- CONCEPTS.md
 - prompts/system.md
 - prompts/user.md
 - data/packages.json
 - tools.py
 - llm.py
+- fake_responses.json
 - agent.py
 
 Your task is ONLY to implement run_agent() in agent.py.
@@ -19,7 +21,9 @@ Your task is ONLY to implement run_agent() in agent.py.
 Do not redesign the project.
 
 The existing code already provides:
-- the real Anthropic model adapter;
+- CopilotLLM for the real GitHub Copilot runtime;
+- FakeLLM for deterministic scripted runtime responses;
+- build_llm() and --mode copilot|fake;
 - prompt paths;
 - the local track_package tool;
 - JSON parsing;
@@ -34,39 +38,49 @@ Implement this exact L2 flow:
 3. Render prompts/user.md with the request and current tool_result.
 4. Call llm.complete(system, rendered_user_prompt).
 5. Count each llm.complete call as one model turn.
-6. Parse the returned action using the existing parse_action() helper.
-7. If action == final:
+6. Print each raw model response under MODEL TURN N.
+7. Parse the response with the existing parse_action() helper.
+8. If action == final:
+   - require answer to be a non-empty string;
    - return status=completed;
    - include answer, model_turns and tool_actions.
-8. If action == call_tool:
+9. If action == call_tool:
    - refuse if the one-tool budget has already been used;
-   - allow only the tool name track_package;
+   - allow only tool name track_package;
+   - require arguments to be an object;
    - require arguments.tracking_id to be a non-empty string;
    - call track_package(tracking_id, PACKAGE_DATA);
    - count it as one tool action;
+   - print the tool call and result under TOOL;
    - serialize the tool result to JSON;
-   - send that result back to the model on the next turn.
-9. If the model does not finalise before MAX_MODEL_TURNS:
-   - return status=degraded;
-   - error=model_turn_budget_exhausted.
-10. For rejected authority or validation cases, return a structured degraded result.
-11. Keep the function small and readable.
-
-For the live demonstration, print:
-- each raw model response as MODEL TURN N;
-- the tool call and tool result under TOOL.
+   - use that JSON as tool_result on the next model turn.
+10. If the model requests a second tool:
+    - return status=degraded;
+    - error=tool_budget_exhausted.
+11. If a tool name is not allowed:
+    - return status=degraded;
+    - error=tool_not_allowed.
+12. If required arguments are invalid:
+    - return status=degraded;
+    - error=invalid_tool_arguments.
+13. If the model does not finalise before MAX_MODEL_TURNS:
+    - return status=degraded;
+    - error=model_turn_budget_exhausted.
+14. Keep the function small and readable.
 
 Do not:
 - add another tool;
 - add L3 behaviour;
 - add shell execution;
-- add filesystem write actions;
+- add filesystem writes;
 - change prompts;
 - change llm.py;
 - change tools.py;
+- change build_llm();
 - change the budgets;
 - add retries;
-- add packages.
+- add packages;
+- add an agent framework.
 
 After editing, show me only the run_agent() implementation and a short explanation of the control flow.
 ```
