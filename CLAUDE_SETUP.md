@@ -34,6 +34,14 @@ For this small, well-specified two-turn agent, `medium` is a sensible balance of
 
 ## 3. Choose a model
 
+First list what your API key can use:
+
+```bash
+python list_models.py
+```
+
+Then choose one of the returned model IDs.
+
 CLI:
 
 ```bash
