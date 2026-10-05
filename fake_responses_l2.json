@@ -1,0 +1,13 @@
+[
+  {
+    "action": "call_tool",
+    "tool": "track_package",
+    "arguments": {
+      "tracking_id": "PKG123"
+    }
+  },
+  {
+    "action": "final",
+    "answer": "PKG123 is delayed at the Penang depot. Under L2 I can verify the parcel status, but I do not have authority to look up depot collection information, so I cannot confirm whether you can collect it today."
+  }
+]
