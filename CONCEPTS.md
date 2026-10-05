@@ -1,121 +1,121 @@
 # Trainer Reference Concepts
 
-## Claude is the runtime model
+## The autonomy dial
 
-`AnthropicLLM` in `llm.py` calls Claude through the Anthropic Messages API.
+This trainer uses one agent implementation with two explicit authority profiles.
 
-The default runtime is:
-
-```text
-claude-sonnet-5-5
-medium effort
-4096 max output tokens
-```
-
-## Model selection
-
-The model is not hard-coded into the orchestration.
-
-Choose it with:
-
-```bash
-python agent.py --model MODEL_ID
-```
-
-or:
+### L2
 
 ```text
-ANTHROPIC_MODEL
+one approved model-selected action
+one tool action maximum
+two model turns maximum
+allowed tool: track_package
 ```
 
-## Effort
-
-Effort controls how much work Claude puts into the response.
-
-The trainer exposes:
+### L3
 
 ```text
-low
-medium
-high
-xhigh
-max
+multiple bounded model-selected actions
+two tool actions maximum
+three model turns maximum
+allowed tools:
+- track_package
+- get_depot_info
 ```
 
-Choose it with:
+L3 is not defined here as unlimited autonomy. It is still tightly bounded.
 
-```bash
-python agent.py --effort high
-```
+## Why the same question matters
 
-or:
+The trainer asks both levels:
 
 ```text
-ANTHROPIC_EFFORT
+My parcel PKG123 is delayed. Can I collect it from the depot today?
 ```
 
-Effort affects latency, token usage, reasoning depth, and the model's overall response behaviour. It does **not** grant additional authority to the agent.
+L2 can discover where the parcel is but cannot independently look up collection rules.
 
-Not every model supports every effort level.
+L3 can use the result of the first action to choose a second approved action.
 
-## Thinking versus effort
+That makes the progression observable.
 
-Current Claude models can use adaptive thinking. Effort is the main application-level control used here to steer how much work Claude performs.
+## Authority versus intelligence
 
-This demo does not depend on receiving or displaying Claude's thinking content. It consumes only the final text block containing our JSON action.
-
-## Coding assistant versus runtime
-
-The trainer branch does not require Copilot.
-
-The program calls Claude directly at runtime.
-
-Participants may still use Copilot/Claude in VS Code to write their own code, but that development-time assistant is separate from this trainer runtime.
-
-## FakeLLM
-
-`FakeLLM` replays scripted responses from `fake_responses.json`.
-
-It is useful for deterministic demonstrations and tests:
+Changing:
 
 ```text
-Claude   → real model judgement
-FakeLLM  → predictable agent engineering
+--effort low
 ```
+
+to:
+
+```text
+--effort high
+```
+
+changes model behaviour and reasoning effort.
+
+Changing:
+
+```text
+--level l2
+```
+
+to:
+
+```text
+--level l3
+```
+
+changes what Python permits the agent to do.
+
+These are different controls.
+
+## Runtime model
+
+`AnthropicLLM` calls Claude through the Anthropic Messages API.
+
+FakeLLM replays scripted responses so the control flow is deterministic.
+
+## Tool chaining
+
+L3 demonstrates a simple dependency:
+
+```text
+track_package("PKG123")
+→ returns location "Penang depot"
+
+get_depot_info("Penang depot")
+→ returns collection rules
+
+final answer
+```
+
+The second action uses evidence produced by the first action.
 
 ## Authority boundary
 
-The model does not execute `track_package()`.
+The model returns a requested action as JSON.
 
-It requests:
-
-```json
-{
-  "action": "call_tool",
-  "tool": "track_package",
-  "arguments": {
-    "tracking_id": "PKG123"
-  }
-}
-```
-
-`agent.py` parses and validates that request.
-
-Only then does Python execute the tool.
-
-## L2 autonomy
-
-This exercise permits at most one approved model-selected action.
+Python then checks:
 
 ```text
-model turn 1
-→ one approved tool action
-→ model turn 2
-→ final answer
+Is the tool allowed at this level?
+Is there tool budget left?
+Are the arguments valid?
 ```
 
-The two model turns and one tool action are separate budgets.
+Only then does Python execute the function.
+
+## Safe completion under L2
+
+L2 should not guess collection information.
+
+If its authority is insufficient, it should clearly state what it knows and what it cannot verify.
+
+That is a successful bounded outcome, not a model failure.
 
 ## Safe degradation
 
-Invalid model output, an unapproved tool, invalid arguments, or an exhausted budget returns a structured degraded result rather than guessing or silently continuing.
+Malformed model output, an unapproved tool, invalid arguments, or an exceeded budget returns a structured degraded result.
