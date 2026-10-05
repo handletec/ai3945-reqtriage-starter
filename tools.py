@@ -6,6 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 PACKAGE_DATA = ROOT / "data" / "packages.json"
+DEPOT_DATA = ROOT / "data" / "depots.json"
 
 
 def track_package(tracking_id: str, data_path: Path = PACKAGE_DATA) -> dict:
@@ -27,7 +28,30 @@ def track_package(tracking_id: str, data_path: Path = PACKAGE_DATA) -> dict:
     }
 
 
+def get_depot_info(depot_name: str, data_path: Path = DEPOT_DATA) -> dict:
+    """Read collection information for one synthetic depot."""
+
+    depots = json.loads(data_path.read_text(encoding="utf-8"))
+    depot = depots.get(depot_name)
+
+    if depot is None:
+        return {
+            "found": False,
+            "depot_name": depot_name,
+        }
+
+    return {
+        "found": True,
+        "depot_name": depot_name,
+        **depot,
+    }
+
+
 def main() -> int:
+    if len(sys.argv) >= 3 and sys.argv[1] == "depot":
+        print(json.dumps(get_depot_info(sys.argv[2]), indent=2))
+        return 0
+
     tracking_id = sys.argv[1] if len(sys.argv) > 1 else "PKG123"
     print(json.dumps(track_package(tracking_id), indent=2))
     return 0
