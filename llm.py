@@ -22,6 +22,8 @@ class CopilotLLM:
         client = CopilotClient(mode="empty")
         await client.start()
 
+        session = None
+
         try:
             session = await client.create_session(
                 on_permission_request=PermissionHandler.approve_all,
@@ -45,6 +47,9 @@ class CopilotLLM:
 
             return content
         finally:
+            if session is not None:
+                await session.disconnect()
+
             await client.stop()
 
 
