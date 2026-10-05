@@ -2,7 +2,7 @@
 
 ## I cloned the repo but do not see LAB.md at the root
 
-Check:
+Run:
 
 ```bash
 git branch --show-current
@@ -14,27 +14,9 @@ It must be:
 participant-guided-agent-v2
 ```
 
-If not, clone the correct branch exactly as shown in `README.md`.
-
 ## `copilot` command is not found
 
-Install GitHub Copilot CLI using `COPILOT_SETUP.md`.
-
-Examples:
-
-### Windows
-
-```powershell
-winget install GitHub.Copilot
-```
-
-### macOS / Linux with Homebrew
-
-```bash
-brew install --cask copilot-cli
-```
-
-Then verify:
+Follow `COPILOT_SETUP.md`, then verify:
 
 ```bash
 copilot --version
@@ -48,12 +30,6 @@ Activate your virtual environment and run:
 python -m pip install -r requirements.txt
 ```
 
-Then rerun:
-
-```bash
-python check_env.py
-```
-
 ## Copilot works in VS Code but `model_check.py` fails
 
 VS Code Copilot and Copilot CLI authentication are separate surfaces.
@@ -62,92 +38,112 @@ Run:
 
 ```bash
 copilot login
-```
-
-Complete the GitHub OAuth login using the GitHub account that has your Copilot entitlement.
-
-Then retry:
-
-```bash
 python model_check.py
 ```
 
-## Access denied or organization policy error
+Use the GitHub account that has your Copilot entitlement.
+
+## Organization policy error
 
 If your Copilot access is supplied by an organization, that organization must allow GitHub Copilot CLI.
 
-This cannot be fixed in the Python code. Show the error to the trainer.
+Show the error to the trainer.
 
-## Wrong GitHub account
+## Morning: `tool_not_allowed`
 
-Run `copilot login` again with the account that has Copilot access.
-
-Also check whether `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, or `GITHUB_TOKEN` is set in your shell, because an environment token can override stored login credentials.
-
-## `model_check.py` reports no authentication information
-
-Run:
-
-```bash
-copilot login
-```
-
-Then retry `python model_check.py`.
-
-## `model_check.py` cannot reach the service
-
-Confirm your machine has Internet access and that your network allows GitHub Copilot.
-
-If FakeLLM works but Copilot mode does not, the agent code may be fine and the problem may be authentication/network access.
-
-## `python agent.py --mode fake ...` fails before contacting a model
-
-Fake mode does not require a live model request, but the Python dependencies still need to be installed.
-
-Run:
-
-```bash
-python check_env.py
-```
-
-Fix any failed local checks.
-
-## `JSONDecodeError` when running Copilot mode
-
-The real model returned text that was not valid JSON.
-
-Inspect the printed `MODEL TURN` output.
-
-Do not silently convert bad output to `{}` or `None`.
-
-For the class exercise, retry the command once manually. If the same problem persists, show the raw model response to the trainer.
-
-## `tool_not_allowed`
-
-Your Python correctly rejected a tool outside the allow-list.
-
-The only permitted tool is:
+In L2 the only permitted runtime tool is:
 
 ```text
 track_package
 ```
 
+If the model requests `get_depot_info` during the morning L2 exercise, Python should reject it.
+
+That is correct L2 behaviour.
+
+## Morning: tests do not show `4 passed`
+
+Do not start L3 yet.
+
+Check that Copilot/Claude changed only `run_agent()` and followed `COPILOT_PROMPT.md`.
+
+Run:
+
+```bash
+python -m pytest -q
+```
+
+Fix L2 until the result is:
+
+```text
+4 passed
+```
+
+## Afternoon: `run_agent()` does not accept `level=`
+
+You have not completed the L3 upgrade yet.
+
+Use the complete prompt in:
+
+```text
+COPILOT_PROMPT_L3.md
+```
+
+Then run:
+
+```bash
+python verify_l3.py
+```
+
+## Afternoon: `get_depot_info` is rejected in L3
+
+Check that your L3 configuration allows both:
+
+```text
+track_package
+get_depot_info
+```
+
+and that `--level l3` is actually selected.
+
+## Afternoon: L2 stopped working after the upgrade
+
+The L3 upgrade must preserve L2 as the default.
+
+Run:
+
+```bash
+python -m pytest -q
+```
+
+It should still show:
+
+```text
+4 passed
+```
+
+Then run:
+
+```bash
+python verify_l3.py
+```
+
+## `JSONDecodeError` or invalid model output
+
+Inspect the printed `MODEL TURN` response.
+
+Do not silently turn malformed output into an empty object.
+
+Retry once manually if using the real model. If it persists, show the raw response to the trainer.
+
 ## `tool_budget_exhausted`
 
-The runtime model requested another tool after the single permitted tool action had already been used.
+The model tried to act beyond the current level's action budget.
 
-That is the intended L2 authority boundary.
-
-## Tests fail after Copilot Chat edits `agent.py`
-
-Check that Copilot/Claude changed only `run_agent()`.
-
-Compare the implementation with `COPILOT_PROMPT.md`.
-
-Do not ask Copilot to redesign the project or introduce an agent framework.
+That is a policy boundary, not a Python crash.
 
 ## FakeLLM output is always the same
 
 That is expected.
 
-`FakeLLM` replays `fake_responses.json`. It exists so the engineering path can be repeated predictably.
+FakeLLM is deliberately deterministic so you can test the Python control flow repeatedly.
