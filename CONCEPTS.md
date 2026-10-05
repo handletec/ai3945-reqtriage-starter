@@ -1,42 +1,75 @@
 # Minimal Concepts for This Lab
 
-## Coding assistant
+## One Copilot account, two different roles
 
-GitHub Copilot with Claude helps you write the Python.
+### 1. Coding assistant
 
-It is development-time tooling.
+GitHub Copilot Chat with Claude in VS Code helps you write `run_agent()`.
 
-## Runtime model
+That happens while you are developing the program.
 
-The Python program calls Claude through the Anthropic API while the program is running.
+### 2. Runtime model
 
-That is a separate connection and requires runtime credentials.
+When you run:
+
+```bash
+python agent.py --mode copilot ...
+```
+
+your Python program calls the GitHub Copilot SDK.
+
+The SDK uses the GitHub identity you signed in with through Copilot CLI.
+
+This is a runtime model call made by your program. It is separate from the Copilot Chat window that helped you write the code.
+
+## FakeLLM
+
+`FakeLLM` is not an AI model.
+
+It returns scripted responses from `fake_responses.json`.
+
+We use it after the real-model run so we can repeat the exact same agent behaviour during testing.
+
+```text
+real Copilot runtime → experience real model behaviour
+FakeLLM             → test the Python machinery predictably
+```
 
 ## System prompt
 
-Rules, role, allowed tool and required output format.
+`prompts/system.md` gives the runtime model its role, allowed action, limits, and JSON output contract.
 
 ## User prompt
 
-The actual request being processed, plus the tool result after a lookup.
+`prompts/user.md` carries the current user request and, after a lookup, the tool result.
 
 ## Tool
 
-A normal Python function that the application exposes in a controlled way.
+`track_package()` is an ordinary Python function.
 
-The model requests a tool. Python decides whether that request may execute.
+The runtime model may **request** that tool.
 
-## Model turn
+Your Python decides whether the request is allowed and performs the call.
 
-One call to the runtime model.
+## Why Copilot SDK tools are disabled
 
-A normal run here uses:
+The runtime adapter uses Copilot SDK `mode="empty"` with `available_tools=[]`.
+
+That prevents Copilot's own shell/filesystem/coding tools from hiding the lesson.
+
+The model returns our JSON action. **Our Python** validates and executes it.
+
+## Model turn versus tool action
+
+A normal run uses:
 
 ```text
-model turn 1 → request tool
-tool action 1 → Python runs lookup
+model turn 1 → request track_package
+tool action 1 → Python performs lookup
 model turn 2 → final answer
 ```
+
+Two model turns does not mean two tool actions.
 
 ## L2 autonomy
 
@@ -46,6 +79,6 @@ Python still validates and executes it.
 
 ## Degraded result
 
-A structured non-success result when the run cannot safely complete.
+A degraded result is a structured non-success result when the run cannot safely complete.
 
 Failure is allowed. Guessing or ambiguous success is not.
