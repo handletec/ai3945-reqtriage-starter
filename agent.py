@@ -5,9 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
-
-from llm import AnthropicLLM
+from llm import CopilotLLM, FakeLLM
 from tools import track_package
 
 
@@ -15,6 +13,7 @@ ROOT = Path(__file__).resolve().parent
 SYSTEM_PROMPT = ROOT / "prompts" / "system.md"
 USER_PROMPT = ROOT / "prompts" / "user.md"
 PACKAGE_DATA = ROOT / "data" / "packages.json"
+FAKE_RESPONSES = ROOT / "fake_responses.json"
 
 MAX_TOOL_ACTIONS = 1
 MAX_MODEL_TURNS = 2
@@ -33,13 +32,13 @@ def render_user_prompt(request: str, tool_result: str) -> str:
 def parse_action(raw: str) -> dict:
     text = raw.strip()
 
-    if text.startswith("```"):
+    if text.startswith("\`\`\`"):
         lines = text.splitlines()
 
-        if lines and lines[0].startswith("```"):
+        if lines and lines[0].startswith("\`\`\`"):
             lines = lines[1:]
 
-        if lines and lines[-1].strip() == "```":
+        if lines and lines[-1].strip() == "\`\`\`":
             lines = lines[:-1]
 
         text = "\n".join(lines).strip()
@@ -55,6 +54,16 @@ def parse_action(raw: str) -> dict:
     return action
 
 
+def build_llm(mode: str):
+    if mode == "copilot":
+        return CopilotLLM()
+
+    if mode == "fake":
+        return FakeLLM.from_file(FAKE_RESPONSES)
+
+    raise ValueError(f"Unsupported mode: {mode}")
+
+
 def run_agent(request: str, llm) -> dict:
     """TODO: implement this function during LAB.md Checkpoint 4."""
 
@@ -64,8 +73,6 @@ def run_agent(request: str, llm) -> dict:
 
 
 def main() -> int:
-    load_dotenv()
-
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -74,10 +81,17 @@ def main() -> int:
         default="My parcel PKG123 was due yesterday. Where is it?",
     )
 
+    parser.add_argument(
+        "--mode",
+        choices=["copilot", "fake"],
+        default="copilot",
+        help="Runtime model: real GitHub Copilot or deterministic FakeLLM",
+    )
+
     args = parser.parse_args()
 
     try:
-        result = run_agent(args.request, AnthropicLLM())
+        result = run_agent(args.request, build_llm(args.mode))
 
     except NotImplementedError as exc:
         print(str(exc))
