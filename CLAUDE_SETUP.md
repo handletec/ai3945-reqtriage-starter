@@ -30,7 +30,7 @@ effort:     medium
 max_tokens: 4096
 ```
 
-For this small, well-specified two-turn agent, `medium` is a sensible balance of latency, cost, and reasoning depth.
+For this small, well-specified agent, `medium` is a sensible balance of latency, cost, and reasoning depth.
 
 ## 3. Choose a model
 
