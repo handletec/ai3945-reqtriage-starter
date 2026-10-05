@@ -1,15 +1,57 @@
 # AI3945 — Guided Copilot Agent Lab
 
-This branch is the self-contained hands-on starter for the simplified agent lab.
+This branch contains one hands-on agent that you will build in **two stages**.
 
-You are expected to know basic Python and VS Code. You are **not** expected to already understand agent architecture.
+```text
+Morning   → L2 agent
+Afternoon → upgrade the same working agent to L3
+```
 
-You will use GitHub Copilot in two different ways:
+Do not try to complete both stages at once.
 
-1. **Copilot Chat with Claude in VS Code** helps you write the missing Python.
-2. **GitHub Copilot SDK** is the real runtime model connection used by the Python agent.
+## The learning sequence
 
-The same GitHub Copilot entitlement can support both. **No Anthropic API key is required for the normal lab path.**
+### Morning — L2
+
+You build a parcel agent that may select **one approved action**:
+
+```text
+track_package
+```
+
+Use:
+
+```text
+LAB.md
+COPILOT_PROMPT.md
+```
+
+Complete L2 and reach:
+
+```text
+4 passed
+```
+
+before starting the afternoon extension.
+
+### Afternoon — L3
+
+You upgrade the same agent so it can perform a second bounded action when needed:
+
+```text
+track_package
+→ get_depot_info
+→ final answer
+```
+
+Use:
+
+```text
+L3_EXTENSION.md
+COPILOT_PROMPT_L3.md
+```
+
+The goal is to see that L3 is the same basic agent loop with more bounded authority—not a different architecture.
 
 ## 1. Clone the correct branch
 
@@ -30,13 +72,17 @@ Expected:
 participant-guided-agent-v2
 ```
 
-## 2. What should be at the repository root
+## 2. Repository root
+
+You should see:
 
 ```text
 README.md
 LAB.md
+L3_EXTENSION.md
 COPILOT_SETUP.md
 COPILOT_PROMPT.md
+COPILOT_PROMPT_L3.md
 CONCEPTS.md
 TROUBLESHOOTING.md
 agent.py
@@ -44,14 +90,18 @@ llm.py
 tools.py
 check_env.py
 model_check.py
+verify_l3.py
 fake_responses.json
+fake_responses_l3.json
 requirements.txt
 prompts/
 data/
 tests/
 ```
 
-If these are not at the repository root, stop. You are on the wrong branch.
+Some L3 files are already present so you do not need to download another starter in the afternoon.
+
+**Ignore the L3 files during the morning exercise.**
 
 ## 3. Create the Python environment
 
@@ -73,15 +123,13 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-## 4. Set up your Copilot runtime access
+## 4. Set up Copilot runtime access
 
 Read:
 
 ```text
 COPILOT_SETUP.md
 ```
-
-You will install/sign in to Copilot CLI with the GitHub account that already has your Copilot entitlement.
 
 Then run:
 
@@ -90,9 +138,9 @@ python check_env.py
 python model_check.py
 ```
 
-Do not begin the coding checkpoint until `model_check.py` succeeds.
+Do not start the coding exercise until `model_check.py` succeeds.
 
-## 5. Start the hands-on
+## 5. Begin with L2
 
 Open:
 
@@ -100,22 +148,12 @@ Open:
 LAB.md
 ```
 
-The lab gives you the exact file, action, Copilot prompt, command, expected observation, and first recovery path for each checkpoint.
+Follow it from top to bottom.
 
-## Runtime modes
+When the trainer starts the L3 section later, open:
 
-After you implement `run_agent()` the same agent can run in two modes:
-
-```bash
-python agent.py --mode copilot "My parcel PKG123 was due yesterday. Where is it?"
+```text
+L3_EXTENSION.md
 ```
 
-uses your real GitHub Copilot account at runtime.
-
-```bash
-python agent.py --mode fake "My parcel PKG123 was due yesterday. Where is it?"
-```
-
-uses deterministic scripted responses from `fake_responses.json`.
-
-Use the real model to experience the agent. Use FakeLLM afterwards to understand repeatable testing.
+Do not skip ahead.
