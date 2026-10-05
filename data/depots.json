@@ -1,0 +1,12 @@
+{
+  "Penang depot": {
+    "collection_allowed": true,
+    "opening_hours": "09:00-18:00",
+    "collection_note": "Bring the tracking ID and photo identification. Collection is available while the depot is open."
+  },
+  "Kuala Lumpur depot": {
+    "collection_allowed": false,
+    "opening_hours": "09:00-17:00",
+    "collection_note": "Customer collection is not available at this depot."
+  }
+}
