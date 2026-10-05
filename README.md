@@ -1,121 +1,128 @@
-# AI3945 — Guided Copilot Agent Lab
+# AI3945 — Trainer Complete Parcel Agent
 
-This branch is the self-contained hands-on starter for the simplified agent lab.
+This branch is the **completed trainer version** of the simplified parcel-agent lab.
 
-You are expected to know basic Python and VS Code. You are **not** expected to already understand agent architecture.
+It uses:
 
-You will use GitHub Copilot in two different ways:
+- Claude through the Anthropic API for the real runtime;
+- FakeLLM for deterministic demonstration/testing;
+- the same external `prompts/system.md` and `prompts/user.md` used by the participant exercise;
+- the same local `track_package()` tool and synthetic parcel data.
 
-1. **Copilot Chat with Claude in VS Code** helps you write the missing Python.
-2. **GitHub Copilot SDK** is the real runtime model connection used by the Python agent.
+The agent loop is already implemented. You do not need Copilot.
 
-The same GitHub Copilot entitlement can support both. **No Anthropic API key is required for the normal lab path.**
+## Branch
 
-## 1. Clone the correct branch
+```text
+trainer-complete-claude
+```
+
+Clone directly:
 
 ```bash
-git clone --branch participant-guided-agent-v2 --single-branch https://github.com/handletec/ai3945-reqtriage-starter.git
+git clone --branch trainer-complete-claude --single-branch https://github.com/handletec/ai3945-reqtriage-starter.git
 cd ai3945-reqtriage-starter
 ```
 
-Verify:
+## Install
 
 ```bash
-git branch --show-current
-```
-
-Expected:
-
-```text
-participant-guided-agent-v2
-```
-
-## 2. What should be at the repository root
-
-```text
-README.md
-LAB.md
-COPILOT_SETUP.md
-COPILOT_PROMPT.md
-CONCEPTS.md
-TROUBLESHOOTING.md
-agent.py
-llm.py
-tools.py
-check_env.py
-model_check.py
-fake_responses.json
-requirements.txt
-prompts/
-data/
-tests/
-```
-
-If these are not at the repository root, stop. You are on the wrong branch.
-
-## 3. Create the Python environment
-
-### macOS / Linux
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-### Windows PowerShell
+Then follow `CLAUDE_SETUP.md` to set `ANTHROPIC_API_KEY`.
 
-```powershell
-py -m venv .venv
-.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-```
-
-## 4. Set up your Copilot runtime access
-
-Read:
-
-```text
-COPILOT_SETUP.md
-```
-
-You will install/sign in to Copilot CLI with the GitHub account that already has your Copilot entitlement.
-
-Then run:
+## Preflight
 
 ```bash
 python check_env.py
 python model_check.py
+python -m pytest -q
 ```
 
-Do not begin the coding checkpoint until `model_check.py` succeeds.
-
-## 5. Start the hands-on
-
-Open:
+Expected tests:
 
 ```text
-LAB.md
+4 passed
 ```
 
-The lab gives you the exact file, action, Copilot prompt, command, expected observation, and first recovery path for each checkpoint.
-
-## Runtime modes
-
-After you implement `run_agent()` the same agent can run in two modes:
+## Run the deterministic demo
 
 ```bash
-python agent.py --mode copilot "My parcel PKG123 was due yesterday. Where is it?"
+python agent.py --mode fake
 ```
 
-uses your real GitHub Copilot account at runtime.
+Expected flow:
+
+```text
+MODEL TURN 1
+→ call_tool track_package(PKG123)
+
+TOOL
+→ local parcel evidence
+
+MODEL TURN 2
+→ final answer
+
+FINAL RESULT
+→ completed, 2 model turns, 1 tool action
+```
+
+## Run the real Claude demo
 
 ```bash
-python agent.py --mode fake "My parcel PKG123 was due yesterday. Where is it?"
+python agent.py --mode claude
 ```
 
-uses deterministic scripted responses from `fake_responses.json`.
+Or:
 
-Use the real model to experience the agent. Use FakeLLM afterwards to understand repeatable testing.
+```bash
+python agent.py --mode claude "Has PKG456 already been delivered?"
+```
+
+## Model and effort controls
+
+The code supports both.
+
+Default:
+
+```text
+model  = claude-sonnet-5-5
+effort = medium
+```
+
+Override them directly:
+
+```bash
+python agent.py \
+  --mode claude \
+  --model claude-sonnet-5-5 \
+  --effort high \
+  "Where is PKG123?"
+```
+
+Or configure them with:
+
+```text
+ANTHROPIC_MODEL
+ANTHROPIC_EFFORT
+ANTHROPIC_MAX_TOKENS
+```
+
+`CLAUDE_SETUP.md` contains the full runtime controls.
+
+## Files worth showing participants
+
+```text
+agent.py
+llm.py
+tools.py
+prompts/system.md
+prompts/user.md
+data/packages.json
+fake_responses.json
+```
+
+The important teaching boundary remains:
+
+> The model requests an action. Python decides whether it is allowed and executes it.
