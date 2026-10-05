@@ -17,78 +17,89 @@ python model_check.py
 Fake mode does not make an API request:
 
 ```bash
-python agent.py --mode fake
+python agent.py --mode fake --level l2
+python agent.py --mode fake --level l3
 ```
 
-## Authentication error
+## DNS or connection error
 
-Verify that the API key is valid and is an Anthropic API credential.
+If Claude reports a name-resolution or connection failure, verify the container can resolve:
 
-Do not paste the key into `agent.py` or `llm.py`.
+```bash
+getent hosts api.anthropic.com
+```
+
+The agent logic can still be demonstrated with FakeLLM while the network path is repaired.
 
 ## Model not found
 
-Check the selected model:
+List models available to the current API key:
 
 ```bash
-echo "$ANTHROPIC_MODEL"
+python list_models.py
 ```
 
-or run explicitly:
+Then select one explicitly:
 
 ```bash
-python agent.py --model claude-sonnet-5-5
+python agent.py --model claude-sonnet-5-5 --level l3
 ```
-
-The model must be available to the API account.
 
 ## Effort rejected by the API
 
-Not every model supports every effort level.
+Not every model supports every effort value.
 
 Return to the trainer default:
 
 ```bash
-python agent.py --model claude-sonnet-5-5 --effort medium
+python agent.py --model claude-sonnet-5-5 --effort medium --level l3
 ```
 
-## Response stops early
+## L2 does not answer the collection question fully
 
-Increase the output limit:
+That is expected.
 
-```bash
-python agent.py --max-tokens 8192
-```
-
-The default 4096 is intentionally modest because this agent should return very small JSON actions.
-
-## `JSONDecodeError` or `invalid_model_output`
-
-Inspect the printed `MODEL TURN` output.
-
-The system prompt requires one JSON object, but real models can still return malformed or unexpected text.
-
-Do not silently convert invalid output to an empty object. The structured degraded result is the correct safe behaviour.
-
-## `tool_not_allowed`
-
-The model requested something other than:
+L2 is deliberately limited to:
 
 ```text
 track_package
+1 tool action
+2 model turns
 ```
 
-Python rejected it as intended.
+It can determine that PKG123 is at the Penang depot, but it cannot independently call `get_depot_info`.
+
+Run the same request at L3:
+
+```bash
+python agent.py --mode fake --level l3
+```
+
+## `tool_not_allowed`
+
+The model requested a tool outside the current level's allow-list.
+
+At L2 only `track_package` is allowed.
+
+At L3 `track_package` and `get_depot_info` are allowed.
+
+Any other tool remains rejected.
 
 ## `tool_budget_exhausted`
 
-The model attempted another tool after the one permitted action.
+The model requested another action after the current autonomy level's action budget was spent.
 
-That is the intended L2 limit.
+That is a policy boundary, not a Python crash.
+
+## `invalid_model_output`
+
+Inspect the printed `MODEL TURN` output.
+
+The runtime model is instructed to produce JSON, but Python still validates the result instead of trusting it.
 
 ## Fake mode works but Claude mode fails
 
-That usually points to API authentication, network access, model availability, or runtime configuration rather than the orchestration itself.
+That usually points to API authentication, DNS/network access, model availability, or runtime configuration rather than the orchestration.
 
 Run:
 
@@ -97,7 +108,7 @@ python check_env.py
 python model_check.py
 ```
 
-before debugging `run_agent()`.
+before changing `agent.py`.
 
 ## Tests
 
@@ -110,7 +121,7 @@ python -m pytest -q
 Expected:
 
 ```text
-4 passed
+8 passed
 ```
 
-The tests do not require a live Claude request.
+The tests cover both L2 and L3 without requiring a live Claude request.
