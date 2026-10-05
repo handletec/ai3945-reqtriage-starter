@@ -1,15 +1,10 @@
 # AI3945 — Trainer Complete Parcel Agent
 
-This branch is the **completed trainer version** of the simplified parcel-agent lab.
+This branch is the completed trainer version of the simplified parcel-agent lab.
 
-It uses:
+It demonstrates **L2 and L3 using the same agent architecture**.
 
-- Claude through the Anthropic API for the real runtime;
-- FakeLLM for deterministic demonstration/testing;
-- the same external `prompts/system.md` and `prompts/user.md` used by the participant exercise;
-- the same local `track_package()` tool and synthetic parcel data.
-
-The agent loop is already implemented. You do not need Copilot.
+The only thing that changes between L2 and L3 is the bounded authority granted by Python.
 
 ## Branch
 
@@ -17,12 +12,53 @@ The agent loop is already implemented. You do not need Copilot.
 trainer-complete-claude
 ```
 
-Clone directly:
+## Runtime choices
+
+Real Claude:
 
 ```bash
-git clone --branch trainer-complete-claude --single-branch https://github.com/handletec/ai3945-reqtriage-starter.git
-cd ai3945-reqtriage-starter
+python agent.py --mode claude --level l2
+python agent.py --mode claude --level l3
 ```
+
+Deterministic FakeLLM:
+
+```bash
+python agent.py --mode fake --level l2
+python agent.py --mode fake --level l3
+```
+
+## The L2/L3 comparison
+
+Both levels use the same default question:
+
+```text
+My parcel PKG123 is delayed. Can I collect it from the depot today?
+```
+
+L2 authority:
+
+```text
+Allowed tools: track_package
+Tool-action budget: 1
+Model-turn budget: 2
+```
+
+L2 can establish that the parcel is delayed at the Penang depot, but it cannot independently verify depot collection information.
+
+L3 authority:
+
+```text
+Allowed tools: track_package, get_depot_info
+Tool-action budget: 2
+Model-turn budget: 3
+```
+
+L3 can perform the parcel lookup, use the returned depot name for a second lookup, and then produce the final answer.
+
+That is the teaching point:
+
+> L3 is not a different or magically smarter model. The same agent has been granted more bounded authority to continue acting.
 
 ## Install
 
@@ -30,7 +66,7 @@ cd ai3945-reqtriage-starter
 python -m pip install -r requirements.txt
 ```
 
-Then follow `CLAUDE_SETUP.md` to set `ANTHROPIC_API_KEY`.
+Follow `CLAUDE_SETUP.md` to configure the real Claude runtime.
 
 ## Preflight
 
@@ -41,68 +77,55 @@ python model_check.py
 python -m pytest -q
 ```
 
-Expected tests:
+Expected:
 
 ```text
-4 passed
+8 passed
 ```
 
-## Run the deterministic demo
+## Recommended classroom sequence
+
+First show deterministic L2:
 
 ```bash
-python agent.py --mode fake
+python agent.py --mode fake --level l2
 ```
 
-Expected flow:
-
-```text
-MODEL TURN 1
-→ call_tool track_package(PKG123)
-
-TOOL
-→ local parcel evidence
-
-MODEL TURN 2
-→ final answer
-
-FINAL RESULT
-→ completed, 2 model turns, 1 tool action
-```
-
-## Run the real Claude demo
+Then deterministic L3:
 
 ```bash
-python agent.py --mode claude
+python agent.py --mode fake --level l3
 ```
 
-Or:
+Then repeat with Claude:
 
 ```bash
-python agent.py --mode claude "Has PKG456 already been delivered?"
+python agent.py --mode claude --level l2
+python agent.py --mode claude --level l3
 ```
+
+The program prints the current authority before every run.
 
 ## Model and effort controls
 
-The code supports both.
-
-Default:
+Defaults:
 
 ```text
 model  = claude-sonnet-5-5
 effort = medium
 ```
 
-Override them directly:
+Override them:
 
 ```bash
 python agent.py \
   --mode claude \
+  --level l3 \
   --model claude-sonnet-5-5 \
-  --effort high \
-  "Where is PKG123?"
+  --effort high
 ```
 
-Or configure them with:
+Or use:
 
 ```text
 ANTHROPIC_MODEL
@@ -110,20 +133,19 @@ ANTHROPIC_EFFORT
 ANTHROPIC_MAX_TOKENS
 ```
 
-`CLAUDE_SETUP.md` contains the full runtime controls.
-
 ## Files worth showing participants
 
 ```text
 agent.py
-llm.py
 tools.py
 prompts/system.md
 prompts/user.md
 data/packages.json
-fake_responses.json
+data/depots.json
+fake_responses_l2.json
+fake_responses_l3.json
 ```
 
-The important teaching boundary remains:
+The core boundary remains:
 
-> The model requests an action. Python decides whether it is allowed and executes it.
+> The model requests an action. Python decides whether the action is within the current authority and executes it.
