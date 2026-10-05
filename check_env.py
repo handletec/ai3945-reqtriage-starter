@@ -14,6 +14,7 @@ REQUIRED_FILES = [
     "llm.py",
     "tools.py",
     "model_check.py",
+    "list_models.py",
     "fake_responses.json",
     "prompts/system.md",
     "prompts/user.md",
