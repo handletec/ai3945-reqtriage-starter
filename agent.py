@@ -32,13 +32,13 @@ def render_user_prompt(request: str, tool_result: str) -> str:
 def parse_action(raw: str) -> dict:
     text = raw.strip()
 
-    if text.startswith("\`\`\`"):
+    if text.startswith("```"):
         lines = text.splitlines()
 
-        if lines and lines[0].startswith("\`\`\`"):
+        if lines and lines[0].startswith("```"):
             lines = lines[1:]
 
-        if lines and lines[-1].strip() == "\`\`\`":
+        if lines and lines[-1].strip() == "```":
             lines = lines[:-1]
 
         text = "\n".join(lines).strip()
