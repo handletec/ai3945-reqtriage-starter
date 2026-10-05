@@ -1,60 +1,83 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 from pathlib import Path
 
-from copilot import CopilotClient
-from copilot.session import PermissionHandler
+from anthropic import Anthropic
 
 
-class CopilotLLM:
-    """Runtime model adapter using the participant's signed-in Copilot account."""
+DEFAULT_MODEL = "claude-sonnet-5-5"
+DEFAULT_EFFORT = "medium"
+DEFAULT_MAX_TOKENS = 4096
+VALID_EFFORTS = {"low", "medium", "high", "xhigh", "max"}
 
-    def __init__(self, model: str | None = None) -> None:
-        self.model = model or os.getenv("COPILOT_MODEL", "auto")
 
-    def complete(self, system: str, user: str) -> str:
-        return asyncio.run(self._complete(system, user))
+class AnthropicLLM:
+    """Runtime adapter for Claude through the Anthropic Messages API."""
 
-    async def _complete(self, system: str, user: str) -> str:
-        client = CopilotClient(mode="empty")
-        await client.start()
+    def __init__(
+        self,
+        *,
+        model: str | None = None,
+        effort: str | None = None,
+        max_tokens: int | None = None,
+    ) -> None:
+        self.model = model or os.getenv("ANTHROPIC_MODEL", DEFAULT_MODEL)
+        self.effort = effort or os.getenv("ANTHROPIC_EFFORT", DEFAULT_EFFORT)
 
-        session = None
-
-        try:
-            session = await client.create_session(
-                on_permission_request=PermissionHandler.approve_all,
-                model=self.model,
-                available_tools=[],
-                system_message={
-                    "mode": "replace",
-                    "content": system,
-                },
+        if self.effort not in VALID_EFFORTS:
+            raise ValueError(
+                f"Unsupported effort: {self.effort}. "
+                f"Choose one of: {', '.join(sorted(VALID_EFFORTS))}"
             )
 
-            response = await session.send_and_wait(user)
+        raw_max_tokens = os.getenv(
+            "ANTHROPIC_MAX_TOKENS",
+            str(DEFAULT_MAX_TOKENS),
+        )
 
-            if response is None:
-                raise RuntimeError("Copilot returned no assistant response")
+        self.max_tokens = (
+            max_tokens if max_tokens is not None else int(raw_max_tokens)
+        )
 
-            content = getattr(response.data, "content", None)
+        if self.max_tokens < 256:
+            raise ValueError("max_tokens must be at least 256")
 
-            if not content:
-                raise RuntimeError("Copilot returned empty assistant content")
+        self.client = Anthropic(
+            api_key=os.environ["ANTHROPIC_API_KEY"]
+        )
 
-            return content
-        finally:
-            if session is not None:
-                await session.disconnect()
+    def complete(self, system: str, user: str) -> str:
+        response = self.client.messages.create(
+            model=self.model,
+            max_tokens=self.max_tokens,
+            system=system,
+            output_config={
+                "effort": self.effort,
+            },
+            messages=[
+                {
+                    "role": "user",
+                    "content": user,
+                }
+            ],
+        )
 
-            await client.stop()
+        parts = [
+            block.text
+            for block in response.content
+            if getattr(block, "type", None) == "text"
+        ]
+
+        if not parts:
+            raise RuntimeError("Claude returned no text content")
+
+        return "".join(parts)
 
 
 class FakeLLM:
-    """Deterministic scripted model substitute used for repeatable testing."""
+    """Deterministic scripted model substitute for repeatable demos/tests."""
 
     def __init__(self, responses: list[str]) -> None:
         if not responses:
