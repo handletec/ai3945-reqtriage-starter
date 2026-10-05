@@ -15,10 +15,12 @@ REQUIRED_FILES = [
     "tools.py",
     "model_check.py",
     "list_models.py",
-    "fake_responses.json",
+    "fake_responses_l2.json",
+    "fake_responses_l3.json",
     "prompts/system.md",
     "prompts/user.md",
     "data/packages.json",
+    "data/depots.json",
     "tests/test_agent.py",
     "tests/test_tools.py",
 ]
