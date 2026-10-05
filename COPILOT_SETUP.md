@@ -110,7 +110,7 @@ available_tools=[]
 
 That means Copilot itself is not allowed to use shell, filesystem, or coding tools during the runtime call.
 
-The runtime model is instructed to return our JSON action contract. It can still return malformed or unexpected text, so **your Python code** parses and validates the response before deciding whether `track_package()` is allowed and executed.
+The runtime model is instructed to return our JSON action contract. It can still return malformed or unexpected text, so **your Python code** parses and validates the response before deciding whether a requested tool is allowed at the current autonomy level. Morning L2 allows only `track_package()`. The afternoon L3 extension adds `get_depot_info()` under a larger but still bounded action budget.
 
 That separation is the point of the exercise.
 
