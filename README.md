@@ -36,6 +36,7 @@ Then follow `CLAUDE_SETUP.md` to set `ANTHROPIC_API_KEY`.
 
 ```bash
 python check_env.py
+python list_models.py
 python model_check.py
 python -m pytest -q
 ```
