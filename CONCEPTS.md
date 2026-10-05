@@ -1,14 +1,12 @@
-# Minimal Concepts for This Lab
+# Minimal Concepts for the L2 → L3 Lab
 
 ## One Copilot account, two different roles
 
-### 1. Coding assistant
+### Coding assistant
 
-GitHub Copilot Chat with Claude in VS Code helps you write `run_agent()`.
+GitHub Copilot Chat with Claude helps you write and later upgrade the Python.
 
-That happens while you are developing the program.
-
-### 2. Runtime model
+### Runtime model
 
 When you run:
 
@@ -18,50 +16,47 @@ python agent.py --mode copilot ...
 
 your Python program calls the GitHub Copilot SDK.
 
-The SDK uses the GitHub identity you signed in with through Copilot CLI.
-
-This is a runtime model call made by your program. It is separate from the Copilot Chat window that helped you write the code.
+That runtime call is separate from the Copilot Chat window that helped you write the code.
 
 ## FakeLLM
 
 `FakeLLM` is not an AI model.
 
-It returns scripted responses from `fake_responses.json`.
+It replays scripted responses so you can repeat the same control flow exactly.
 
-We use it after the real-model run so we can repeat the exact same agent behaviour during testing.
+Morning L2 uses:
 
 ```text
-real Copilot runtime → experience real model behaviour
-FakeLLM             → test the Python machinery predictably
+fake_responses.json
 ```
 
-## System prompt
+Afternoon L3 uses:
 
-`prompts/system.md` gives the runtime model its role, allowed action, limits, and JSON output contract.
-
-## User prompt
-
-`prompts/user.md` carries the current user request and, after a lookup, the tool result.
+```text
+fake_responses_l3.json
+```
 
 ## Tool
 
-`track_package()` is an ordinary Python function.
+A tool is an ordinary Python function exposed through a controlled application boundary.
 
-The runtime model may **request** that tool.
+Morning:
 
-Your Python decides whether the request is allowed and performs the call.
+```text
+track_package(tracking_id)
+```
 
-## Why Copilot SDK tools are disabled
+Afternoon adds:
 
-The runtime adapter uses Copilot SDK `mode="empty"` with `available_tools=[]`.
+```text
+get_depot_info(depot_name)
+```
 
-That prevents Copilot's own shell/filesystem/coding tools from hiding the lesson.
-
-The model returns our JSON action. **Our Python** validates and executes it.
+The model requests a tool. Python decides whether that request is allowed and performs the call.
 
 ## Model turn versus tool action
 
-A normal run uses:
+L2 normally uses:
 
 ```text
 model turn 1 → request track_package
@@ -69,15 +64,59 @@ tool action 1 → Python performs lookup
 model turn 2 → final answer
 ```
 
-Two model turns does not mean two tool actions.
+L3 may use:
+
+```text
+model turn 1 → request track_package
+tool action 1 → Python performs lookup
+model turn 2 → request get_depot_info
+tool action 2 → Python performs lookup
+model turn 3 → final answer
+```
+
+Model turns and tool actions are separate budgets.
 
 ## L2 autonomy
 
-For this course, L2 means the model may explicitly choose **one approved action**.
+In this course, L2 means the model may explicitly choose **one approved action**.
 
-Python still validates and executes it.
+Morning limits:
 
-## Degraded result
+```text
+allowed tools: track_package
+tool actions: 1
+model turns: 2
+```
+
+## L3 autonomy
+
+In this course, L3 means the model may choose **multiple approved actions within explicit limits**.
+
+Afternoon limits:
+
+```text
+allowed tools: track_package, get_depot_info
+tool actions: 2
+model turns: 3
+```
+
+L3 is still bounded. It does not mean the model may execute arbitrary tools.
+
+## Same model, different authority
+
+The key lesson is:
+
+> L3 is not automatically a smarter model. The application gives the model more bounded authority to continue acting.
+
+## Why Copilot SDK tools are disabled
+
+The runtime adapter uses Copilot SDK `mode="empty"` with `available_tools=[]`.
+
+That prevents Copilot's own shell/filesystem/coding tools from hiding the exercise.
+
+Our model returns JSON action requests. **Our Python** validates and executes them.
+
+## Safe degradation
 
 A degraded result is a structured non-success result when the run cannot safely complete.
 
