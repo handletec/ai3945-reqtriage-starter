@@ -1,0 +1,12 @@
+{
+  "PKG123": {
+    "status": "Delayed",
+    "location": "Penang depot",
+    "detail": "The parcel reached the depot this morning and is awaiting delivery."
+  },
+  "PKG456": {
+    "status": "Delivered",
+    "location": "Recipient address",
+    "detail": "Delivered at 14:20."
+  }
+}
