@@ -1,0 +1,20 @@
+[
+  {
+    "action": "call_tool",
+    "tool": "track_package",
+    "arguments": {
+      "tracking_id": "PKG123"
+    }
+  },
+  {
+    "action": "call_tool",
+    "tool": "get_depot_info",
+    "arguments": {
+      "depot_name": "Penang depot"
+    }
+  },
+  {
+    "action": "final",
+    "answer": "PKG123 is delayed at the Penang depot. Collection is allowed there while the depot is open from 09:00 to 18:00. Bring the tracking ID and photo identification."
+  }
+]
