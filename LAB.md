@@ -1,50 +1,47 @@
-# Guided Lab — Build and Run a Copilot-Backed Parcel Agent
+# Morning Lab — Build the L2 Parcel Agent
 
-## Goal
+## Morning goal
 
 Build a small L2 agent that can answer:
 
 > My parcel PKG123 was due yesterday. Where is it?
 
-The finished flow is:
+The finished L2 flow is:
 
 ```text
 user request
-→ GitHub Copilot runtime model
+→ runtime model
 → model requests track_package
-→ your Python validates the request
-→ your Python runs track_package()
-→ tool result goes back to the runtime model
-→ runtime model returns the final answer
+→ Python validates the request
+→ Python runs track_package()
+→ tool result goes back to the model
+→ model returns the final answer
+```
+
+L2 in this exercise means:
+
+```text
+approved tools: 1
+maximum tool actions: 1
+maximum model turns: 2
 ```
 
 Copilot may request the tool. **Python remains in control of execution.**
+
+Do not use `get_depot_info`, `system_l3.md`, or `fake_responses_l3.json` this morning. They are supplied for the afternoon L3 extension.
 
 ---
 
 ## Checkpoint 0 — Make the environment ready
 
-First complete `COPILOT_SETUP.md`.
-
-Then run:
+Complete `COPILOT_SETUP.md`, then run:
 
 ```bash
 python check_env.py
-```
-
-Expected final line:
-
-```text
-All local checks passed. Next run: python model_check.py
-```
-
-Now prove that your Python program can reach Copilot:
-
-```bash
 python model_check.py
 ```
 
-Expected pattern:
+Expected connection pattern:
 
 ```text
 Connecting through your signed-in GitHub Copilot account...
@@ -52,13 +49,13 @@ Model responded: READY
 Copilot runtime connection works.
 ```
 
-If this fails, do not start coding yet. Use `TROUBLESHOOTING.md`.
+If either command fails, use `TROUBLESHOOTING.md` before coding.
 
 ---
 
-## Checkpoint 1 — Inspect the supplied pieces
+## Checkpoint 1 — Inspect only the L2 pieces
 
-Open these files:
+Open:
 
 ```text
 prompts/system.md
@@ -70,28 +67,33 @@ fake_responses.json
 agent.py
 ```
 
-Do not edit anything yet.
-
-Identify each responsibility:
+For now, focus only on:
 
 ```text
-system.md          runtime rules and JSON contract
-user.md            current request + current tool result
-packages.json      synthetic parcel data
-tools.py           local deterministic Python lookup
-llm.py             CopilotLLM + FakeLLM adapters
-fake_responses     scripted FakeLLM behaviour
-agent.py           orchestration you will complete
+track_package()
+prompts/system.md
+fake_responses.json
 ```
 
-Important distinction:
+Identify:
+
+```text
+system.md       L2 runtime rules and JSON contract
+user.md         request + current tool result
+packages.json   synthetic parcel data
+track_package   ordinary local Python lookup
+llm.py          CopilotLLM + FakeLLM
+agent.py        orchestration you will complete
+```
+
+Important:
 
 > Copilot Chat with Claude helps you WRITE the agent.
-> CopilotLLM is what the agent CALLS while it runs.
+> CopilotLLM is what your Python agent CALLS while it runs.
 
 ---
 
-## Checkpoint 2 — Prove the tool works without AI
+## Checkpoint 2 — Prove the L2 tool works without AI
 
 Run:
 
@@ -99,7 +101,7 @@ Run:
 python tools.py PKG123
 ```
 
-Expected evidence:
+Expected evidence includes:
 
 ```json
 {
@@ -110,32 +112,21 @@ Expected evidence:
 }
 ```
 
-Now run:
+Then:
 
 ```bash
 python tools.py DOES-NOT-EXIST
 ```
 
-Expected evidence:
-
-```json
-{
-  "found": false,
-  "tracking_id": "DOES-NOT-EXIST"
-}
-```
-
-This proves the tool is ordinary Python. The model does not perform the lookup itself.
+This proves the lookup is normal deterministic Python.
 
 ---
 
-## Checkpoint 3 — Understand the model contract
+## Checkpoint 3 — Understand the L2 contract
 
 Open `prompts/system.md`.
 
-The runtime model may return only one of two action types.
-
-Tool request:
+The model can either request:
 
 ```json
 {
@@ -147,7 +138,7 @@ Tool request:
 }
 ```
 
-Final response:
+or finish:
 
 ```json
 {
@@ -156,112 +147,81 @@ Final response:
 }
 ```
 
-This JSON format is **our application contract**. It is not permission for the model to execute Python.
+The JSON is an application contract. It is not permission for the model to execute Python.
 
 ---
 
-## Checkpoint 4 — Use Copilot/Claude to implement only the loop
+## Checkpoint 4 — Implement only L2
 
-Open `agent.py`.
+Open:
 
-The missing function is:
-
-```python
-run_agent(request: str, llm) -> dict
+```text
+COPILOT_PROMPT.md
 ```
 
-Open `COPILOT_PROMPT.md`.
+Copy the complete prompt into GitHub Copilot Chat with Claude selected.
 
-Copy its complete prompt into GitHub Copilot Chat with Claude selected.
+Let it implement only `run_agent()` in `agent.py`.
 
-Allow Claude to implement only `run_agent()`.
+Do not ask it to implement L3 yet.
 
-Before running it, inspect the result and point to:
+Before running the code, identify:
 
-1. where the runtime model is called;
-2. where model JSON is parsed;
-3. where the tool name is allow-listed;
-4. where the one-tool budget is enforced;
-5. where Python calls `track_package()`;
-6. where the tool result is sent back to the model;
-7. where the final structured result is returned.
-
-If Claude changes other files, adds another tool, or adds a framework, undo those changes and use the bounded prompt again.
+1. where the model is called;
+2. where JSON is parsed;
+3. where `track_package` is allow-listed;
+4. where the one-action budget is enforced;
+5. where Python executes `track_package()`;
+6. where the tool result is sent back;
+7. where the final result is returned.
 
 ---
 
-## Checkpoint 5 — Run the real Copilot-backed agent
+## Checkpoint 5 — Run real L2
 
 Run:
 
 ```bash
-python agent.py --mode copilot "My parcel PKG123 was due yesterday. Where is it?"
+python agent.py --mode copilot \
+  "My parcel PKG123 was due yesterday. Where is it?"
 ```
 
 Expected pattern:
 
 ```text
 MODEL TURN 1
-{... "action": "call_tool" ...}
+→ call_tool track_package
 
 TOOL
-track_package('PKG123')
-{... parcel evidence ...}
+→ parcel evidence
 
 MODEL TURN 2
-{... "action": "final" ...}
+→ final
 
 FINAL RESULT
-{
-  "status": "completed",
-  "answer": "...",
-  "model_turns": 2,
-  "tool_actions": 1
-}
-```
-
-The wording can vary because this is a real model.
-
-The evidence that matters is:
-
-```text
-real model called
-→ approved tool requested
-→ Python executed tool
-→ tool result returned to model
-→ final answer produced
+→ completed
+→ model_turns: 2
+→ tool_actions: 1
 ```
 
 ---
 
-## Checkpoint 6 — Run the same agent with FakeLLM
+## Checkpoint 6 — Run deterministic L2
 
-Now run:
+Run:
 
 ```bash
-python agent.py --mode fake "My parcel PKG123 was due yesterday. Where is it?"
+python agent.py --mode fake \
+  "My parcel PKG123 was due yesterday. Where is it?"
 ```
-
-This uses `fake_responses.json` instead of GitHub Copilot.
 
 Run it again.
 
-The model responses should be the same each time.
-
-That is the purpose of FakeLLM:
-
-```text
-CopilotLLM → real model behaviour
-FakeLLM    → repeatable engineering test behaviour
-```
-
-FakeLLM does not reason. It replays scripted responses.
+The FakeLLM model responses should be identical because `fake_responses.json` is scripted.
 
 ---
 
-## Checkpoint 7 — Try different real requests
-
-Run:
+## Checkpoint 7 — Try other real L2 requests
 
 ```bash
 python agent.py --mode copilot "Has PKG456 already been delivered?"
@@ -275,11 +235,9 @@ python agent.py --mode copilot "Where is parcel UNKNOWN999?"
 
 Observe what varies and what stays deterministic.
 
-The model wording can vary. The parcel data and Python authority rules do not.
-
 ---
 
-## Checkpoint 8 — Run deterministic tests
+## Checkpoint 8 — Prove L2 is complete
 
 Run:
 
@@ -287,26 +245,35 @@ Run:
 python -m pytest -q
 ```
 
-Expected after `run_agent()` is correct:
+Expected:
 
 ```text
 4 passed
 ```
 
-The tests use scripted model responses. They do not depend on a live Copilot request.
+Do not start L3 until you have this result.
 
 ---
 
-## Checkpoint 9 — Explain the boundary
+## Checkpoint 9 — Explain L2
 
-Before finishing, be able to answer:
+Be able to answer:
 
 1. What did Copilot Chat with Claude do?
 2. What did CopilotLLM do?
-3. What did FakeLLM do?
-4. Who actually executed `track_package()`?
-5. Could the runtime model execute `delete_package`?
-6. Why are there normally two model turns but one tool action?
-7. Why is FakeLLM useful after the real-model run?
+3. Who executed `track_package()`?
+4. How many tool actions were allowed?
+5. Why were there normally two model turns but one action?
+6. Could the runtime model execute `delete_package`?
 
-If you can answer those questions from the code you ran, the lab is complete.
+## STOP HERE
+
+When you have `4 passed`, you have a working L2 checkpoint.
+
+Wait for the trainer to begin the afternoon section.
+
+Then open:
+
+```text
+L3_EXTENSION.md
+```
