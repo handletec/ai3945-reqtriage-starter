@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from llm import CopilotLLM
+from llm import AnthropicLLM
 
 
 def main() -> int:
-    print("Connecting through your signed-in GitHub Copilot account...")
+    llm = AnthropicLLM()
 
-    llm = CopilotLLM()
+    print(
+        "Connecting to Claude "
+        f"(model={llm.model}, effort={llm.effort}, max_tokens={llm.max_tokens})..."
+    )
 
     response = llm.complete(
         "You are a connection check. Reply with the single word READY.",
@@ -14,8 +17,7 @@ def main() -> int:
     )
 
     print(f"Model responded: {response.strip()}")
-    print("Copilot runtime connection works.")
-
+    print("Claude runtime connection works.")
     return 0
 
 
