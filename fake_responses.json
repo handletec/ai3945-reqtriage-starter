@@ -1,0 +1,13 @@
+[
+  {
+    "action": "call_tool",
+    "tool": "track_package",
+    "arguments": {
+      "tracking_id": "PKG123"
+    }
+  },
+  {
+    "action": "final",
+    "answer": "Your parcel is at the Penang depot. It is delayed and is awaiting delivery."
+  }
+]
