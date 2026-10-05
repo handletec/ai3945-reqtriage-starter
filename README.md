@@ -1,25 +1,42 @@
-# AI3945 — Guided Real-Model Agent Lab
+# AI3945 — Guided Copilot Agent Lab
 
-This branch is a self-contained hands-on starter.
+This branch is the self-contained hands-on starter for the simplified agent lab.
 
-You are expected to know basic Python and VS Code. You are **not** expected to already know how AI agents work.
+You are expected to know basic Python and VS Code. You are **not** expected to already understand agent architecture.
 
-You will use **GitHub Copilot with Claude as your coding assistant**. The Python program you build will separately call a **real Claude model at runtime**.
+You will use GitHub Copilot in two different ways:
 
-## 1. Clone this branch
+1. **Copilot Chat with Claude in VS Code** helps you write the missing Python.
+2. **GitHub Copilot SDK** is the real runtime model connection used by the Python agent.
+
+The same GitHub Copilot entitlement can support both. **No Anthropic API key is required for the normal lab path.**
+
+## 1. Clone the correct branch
 
 ```bash
 git clone --branch participant-guided-agent-v2 --single-branch https://github.com/handletec/ai3945-reqtriage-starter.git
 cd ai3945-reqtriage-starter
 ```
 
-You should immediately see:
+Verify:
+
+```bash
+git branch --show-current
+```
+
+Expected:
+
+```text
+participant-guided-agent-v2
+```
+
+## 2. What should be at the repository root
 
 ```text
 README.md
 LAB.md
+COPILOT_SETUP.md
 COPILOT_PROMPT.md
-MODEL_SETUP.md
 CONCEPTS.md
 TROUBLESHOOTING.md
 agent.py
@@ -27,25 +44,16 @@ llm.py
 tools.py
 check_env.py
 model_check.py
+fake_responses.json
 requirements.txt
 prompts/
 data/
 tests/
 ```
 
-If those files are not at the repository root, stop. You are on the wrong branch.
+If these are not at the repository root, stop. You are on the wrong branch.
 
-## 2. Check your starting environment
-
-Run:
-
-```bash
-python check_env.py
-```
-
-It will tell you what is missing.
-
-## 3. Create a Python environment
+## 3. Create the Python environment
 
 ### macOS / Linux
 
@@ -65,11 +73,15 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-## 4. Configure the runtime model
+## 4. Set up your Copilot runtime access
 
-Read `MODEL_SETUP.md`.
+Read:
 
-You will need the runtime credentials supplied by the trainer.
+```text
+COPILOT_SETUP.md
+```
+
+You will install/sign in to Copilot CLI with the GitHub account that already has your Copilot entitlement.
 
 Then run:
 
@@ -78,7 +90,7 @@ python check_env.py
 python model_check.py
 ```
 
-Do not start the coding checkpoint until both succeed.
+Do not begin the coding checkpoint until `model_check.py` succeeds.
 
 ## 5. Start the hands-on
 
@@ -88,13 +100,22 @@ Open:
 LAB.md
 ```
 
-The lab tells you exactly:
+The lab gives you the exact file, action, Copilot prompt, command, expected observation, and first recovery path for each checkpoint.
 
-- what file to inspect;
-- what concept you are looking at;
-- what command to run;
-- what prompt to give Copilot/Claude;
-- what output to expect;
-- how to know the step worked.
+## Runtime modes
 
-Do not ask Copilot to build a different architecture. The point is to understand this small agent loop.
+After you implement `run_agent()` the same agent can run in two modes:
+
+```bash
+python agent.py --mode copilot "My parcel PKG123 was due yesterday. Where is it?"
+```
+
+uses your real GitHub Copilot account at runtime.
+
+```bash
+python agent.py --mode fake "My parcel PKG123 was due yesterday. Where is it?"
+```
+
+uses deterministic scripted responses from `fake_responses.json`.
+
+Use the real model to experience the agent. Use FakeLLM afterwards to understand repeatable testing.
