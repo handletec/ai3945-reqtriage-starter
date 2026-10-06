@@ -60,25 +60,28 @@ Make these changes in agent.py:
    run_agent(request: str, llm, level: str = "l2") -> dict
 5. Preserve L2 as the default so the existing morning tests still work.
 6. Select the system prompt and budgets from LEVELS[level].
-7. Before executing a requested tool:
+7. Keep a tool_history list for the whole run. Do NOT replace earlier tool results with the newest one.
+8. Before every model call, render ALL tool evidence collected so far into prompts/user.md. On the first turn use "No tool has been run yet.".
+9. After each successful tool call, append an entry containing the tool name and result to tool_history.
+10. Before executing a requested tool:
    - check that the tool is allowed at the selected level;
    - check that tool budget remains;
    - validate the arguments.
-8. Tool routing:
+11. Tool routing:
    - track_package requires a non-empty tracking_id string;
    - get_depot_info requires a non-empty depot_name string.
-9. Execute only the selected approved Python function.
-10. Continue the loop until final or the selected model-turn budget is exhausted.
-11. Include level in completed and degraded results as uppercase L2 or L3.
-12. Add --level with choices l2 and l3, default l2.
-13. Update build_llm() so fake mode chooses the matching L2 or L3 response file.
-14. Before each run print:
+12. Execute only the selected approved Python function.
+13. Continue the loop until final or the selected model-turn budget is exhausted.
+14. Include level in completed and degraded results as uppercase L2 or L3.
+15. Add --level with choices l2 and l3, default l2.
+16. Update build_llm() so fake mode chooses the matching L2 or L3 response file.
+17. Before each run print:
     AUTONOMY LEVEL: L2 or L3
     Allowed tools: ...
     Tool-action budget: ...
     Model-turn budget: ...
-15. Keep --mode copilot|fake unchanged.
-16. Do not change llm.py, tools.py, prompt files, data files, or tests.
+18. Keep --mode copilot|fake unchanged.
+19. Do not change llm.py, tools.py, prompt files, data files, or tests.
 
 After editing:
 
