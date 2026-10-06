@@ -2,6 +2,6 @@
 
 {{request}}
 
-# Tool Result
+# Tool Evidence So Far
 
 {{tool_result}}
