@@ -68,8 +68,8 @@ To finish:
 - Never invent parcel status, depot rules, opening hours, or collection eligibility.
 - Use only `track_package` and `get_depot_info`.
 - Request at most two tool actions.
-- Treat supplied tool results as trusted synthetic evidence for this exercise.
+- Treat all supplied tool evidence as trusted synthetic evidence for this exercise. Earlier tool results remain relevant on later turns.
 - If the first lookup gives a depot and the user asks about collection, use `get_depot_info` before answering.
-- After the required evidence is available, return `final`.
+- After the required evidence is available, return `final` instead of repeating an earlier lookup.
 - If information is unavailable, say so rather than guessing.
 - Do not output Markdown fences around the JSON.
