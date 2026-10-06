@@ -146,11 +146,16 @@ def run_agent(request: str, llm, level: str = "l2") -> dict:
 
     config = LEVELS[level]
     system = build_system_prompt(level)
-    tool_result = "No tool has been run yet."
+    tool_history: list[dict] = []
     model_turns = 0
     tool_actions = 0
 
     for _ in range(config["max_model_turns"]):
+        tool_result = (
+            "No tool has been run yet."
+            if not tool_history
+            else json.dumps(tool_history, indent=2)
+        )
         rendered_user = render_user_prompt(request, tool_result)
         model_turns += 1
         raw = llm.complete(system, rendered_user)
@@ -235,7 +240,10 @@ def run_agent(request: str, llm, level: str = "l2") -> dict:
         print(display)
         print(json.dumps(tool_output, indent=2))
 
-        tool_result = json.dumps(tool_output)
+        tool_history.append({
+            "tool": tool_name,
+            "result": tool_output,
+        })
 
     return degraded(
         "model_turn_budget_exhausted",
