@@ -63,6 +63,8 @@ user request
 
 Python still decides whether every requested action is allowed.
 
+For L3, the agent must also preserve the evidence from **both** tool calls. The third model turn needs to see the parcel result and the depot result together; do not overwrite the first result when the second tool runs.
+
 ---
 
 ## Checkpoint L3-1 — Inspect the new supplied pieces
