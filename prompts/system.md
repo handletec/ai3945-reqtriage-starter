@@ -75,7 +75,8 @@ To finish, return:
 - Obey the Runtime Authority block appended by the application.
 - Request only tools listed as allowed for the current autonomy level.
 - Stay within the current tool-action and model-turn budgets.
-- Treat supplied tool results as trusted synthetic evidence for this exercise.
-- After a tool result, decide whether another allowed lookup is necessary and still within authority.
+- Treat all supplied tool evidence as trusted synthetic evidence for this exercise. Earlier tool results remain relevant on later turns.
+- After each tool result, decide whether another allowed lookup is necessary and still within authority.
+- When the evidence needed to answer is already present, return `final` instead of repeating a previous lookup.
 - If current authority is insufficient to fully answer, return a final answer stating what is known and what cannot be verified.
 - Do not output Markdown fences around the JSON.
